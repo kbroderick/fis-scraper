@@ -1,21 +1,38 @@
 import requests
 from bs4 import BeautifulSoup
-from datetime import datetime
+from datetime import datetime, date
 import pandas as pd
 from ..database.connection import get_session
 from ..database.models import PointsList, Athlete, AthletePoints, Gender
 import re
 import os
 from urllib.parse import urljoin
+from typing import List, Dict, Optional, Tuple, Union
+from sqlalchemy.orm import Session
 
 class PointsListScraper:
-    BASE_URL = "https://www.fis-ski.com/DB/alpine-skiing/fis-points-lists.html"
+    """Scraper for FIS points lists from the FIS website.
     
-    def __init__(self):
-        self.session = get_session()
+    This class handles downloading and processing FIS points lists, including
+    parsing athlete information and their points/rankings across different disciplines.
+    """
+    
+    BASE_URL: str = "https://www.fis-ski.com/DB/alpine-skiing/fis-points-lists.html"
+    
+    def __init__(self) -> None:
+        """Initialize the PointsListScraper with a database session."""
+        self.session: Session = get_session()
         
-    def get_points_lists(self):
-        """Scrape the FIS points lists page and return list of available points lists."""
+    def get_points_lists(self) -> List[Dict[str, Union[str, date]]]:
+        """Scrape the FIS points lists page and return list of available points lists.
+        
+        Returns:
+            List[Dict[str, Union[str, date]]]: List of dictionaries containing points list information:
+                - name: Name of the points list
+                - valid_from: Start date of validity period
+                - valid_to: End date of validity period
+                - excel_url: URL to download the Excel file
+        """
         response = requests.get(self.BASE_URL)
         soup = BeautifulSoup(response.text, 'html.parser')
         
@@ -40,10 +57,16 @@ class PointsListScraper:
         
         return points_lists
     
-    def _parse_dates(self, date_str):
-        """Parse date string into valid_from and valid_to dates."""
+    def _parse_dates(self, date_str: str) -> Tuple[Optional[date], Optional[date]]:
+        """Parse date string into valid_from and valid_to dates.
+        
+        Args:
+            date_str: String in format "DD-MM-YYYY - DD-MM-YYYY"
+            
+        Returns:
+            Tuple[Optional[date], Optional[date]]: Tuple of (valid_from, valid_to) dates
+        """
         try:
-            # Format: DD-MM-YYYY - DD-MM-YYYY
             parts = date_str.split(' - ')
             if len(parts) == 2:
                 valid_from = datetime.strptime(parts[0].strip(), '%d-%m-%Y').date()
@@ -53,26 +76,27 @@ class PointsListScraper:
             pass
         return None, None
     
-    def download_and_process_points_list(self, points_list_data):
-        """Download and process a single points list."""
+    def download_and_process_points_list(self, points_list_data: Dict[str, Union[str, date]]) -> bool:
+        """Download and process a single points list.
+        
+        Args:
+            points_list_data: Dictionary containing points list information
+            
+        Returns:
+            bool: True if processing was successful, False otherwise
+        """
         try:
-            # Download Excel file
             response = requests.get(points_list_data['excel_url'])
             if response.status_code != 200:
                 return False
             
-            # Save temporary file
             temp_file = 'temp_points.xlsx'
             with open(temp_file, 'wb') as f:
                 f.write(response.content)
             
-            # Read Excel file
             df = pd.read_excel(temp_file)
-            
-            # Process data and save to database
             self._save_points_list(points_list_data, df)
             
-            # Clean up
             os.remove(temp_file)
             return True
             
@@ -80,9 +104,13 @@ class PointsListScraper:
             print(f"Error processing points list: {e}")
             return False
     
-    def _save_points_list(self, points_list_data, df):
-        """Save points list data to database."""
-        # Create PointsList entry
+    def _save_points_list(self, points_list_data: Dict[str, Union[str, date]], df: pd.DataFrame) -> None:
+        """Save points list data to database.
+        
+        Args:
+            points_list_data: Dictionary containing points list information
+            df: DataFrame containing the points list data
+        """
         points_list = PointsList(
             publication_date=datetime.now().date(),
             valid_from=points_list_data['valid_from'],
@@ -92,13 +120,10 @@ class PointsListScraper:
         self.session.add(points_list)
         self.session.flush()
         
-        # Process each row
         for _, row in df.iterrows():
             try:
-                # Create or update athlete
                 athlete = self.session.query(Athlete).filter_by(fis_id=row['FIS Code']).first()
                 if not athlete:
-                    # Extract birth year from birth date if available
                     birth_year = None
                     if 'Birth Date' in row and pd.notna(row['Birth Date']):
                         try:
@@ -121,7 +146,6 @@ class PointsListScraper:
                     self.session.add(athlete)
                     self.session.flush()
                 
-                # Create athlete points entry
                 athlete_points = AthletePoints(
                     athlete_id=athlete.id,
                     points_list_id=points_list.id,
@@ -142,7 +166,14 @@ class PointsListScraper:
         
         self.session.commit()
     
-    def _extract_season(self, name):
-        """Extract season from points list name."""
+    def _extract_season(self, name: str) -> Optional[str]:
+        """Extract season from points list name.
+        
+        Args:
+            name: Points list name string
+            
+        Returns:
+            Optional[str]: Season string (e.g., "2023/24") or None if not found
+        """
         match = re.search(r'(\d{4}/\d{2})', name)
         return match.group(1) if match else None 
