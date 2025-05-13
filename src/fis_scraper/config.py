@@ -4,7 +4,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # Database configuration
-DATABASE_URL = os.getenv('DATABASE_URL', 'sqlite:///fis_data.db')
+DATABASE_URL = os.getenv('DATABASE_URL', 'postgresql://postgres:postgres@localhost:5432/fis_data')
 
 # FIS website configuration
 FIS_BASE_URL = os.getenv('FIS_BASE_URL', 'https://www.fis-ski.com')

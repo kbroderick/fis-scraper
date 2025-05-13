@@ -1,5 +1,5 @@
 from sqlalchemy import Column, Integer, String, Float, Date, ForeignKey, Enum, CHAR
-from sqlalchemy.orm import relationship
+from sqlalchemy.orm import relationship, Mapped
 from .connection import Base
 import enum
 from typing import Optional, List
@@ -35,19 +35,19 @@ class Athlete(Base):
     """
     __tablename__ = 'athletes'
 
-    id: int = Column(Integer, primary_key=True)
-    fis_id: int = Column(Integer, unique=True, nullable=False)
-    name: str = Column(String, nullable=False)
-    country: str = Column(String, nullable=False)
-    nation_code: str = Column(CHAR(3), nullable=False)  # 3-letter country code
-    gender: Gender = Column(Enum(Gender), nullable=False)
-    birth_date: Optional[Date] = Column(Date)
-    birth_year: Optional[int] = Column(Integer)  # For quick filtering/analysis
-    ski_club: Optional[str] = Column(String)
-    national_code: Optional[str] = Column(String)  # National federation code
+    id: Mapped[int] = Column(Integer, primary_key=True)
+    fis_id: Mapped[int] = Column(Integer, unique=True, nullable=False)
+    name: Mapped[str] = Column(String, nullable=False)
+    country: Mapped[str] = Column(String, nullable=False)
+    nation_code: Mapped[str] = Column(CHAR(3), nullable=False)  # 3-letter country code
+    gender: Mapped[Gender] = Column(Enum(Gender), nullable=False)
+    birth_date: Mapped[Optional[Date]] = Column(Date)
+    birth_year: Mapped[Optional[int]] = Column(Integer)  # For quick filtering/analysis
+    ski_club: Mapped[Optional[str]] = Column(String)
+    national_code: Mapped[Optional[str]] = Column(String)  # National federation code
     
-    results: List["RaceResult"] = relationship("RaceResult", back_populates="athlete")
-    points: List["AthletePoints"] = relationship("AthletePoints", back_populates="athlete")
+    results: Mapped[List["RaceResult"]] = relationship("RaceResult", back_populates="athlete")
+    points: Mapped[List["AthletePoints"]] = relationship("AthletePoints", back_populates="athlete")
 
 class RaceResult(Base):
     """Database model representing a single race result.
@@ -65,16 +65,23 @@ class RaceResult(Base):
     """
     __tablename__ = 'race_results'
 
-    id: int = Column(Integer, primary_key=True)
-    athlete_id: int = Column(Integer, ForeignKey('athletes.id'), nullable=False)
-    race_date: Date = Column(Date, nullable=False)
-    discipline: Discipline = Column(Enum(Discipline), nullable=False)
-    points: Optional[float] = Column(Float)
-    rank: Optional[int] = Column(Integer)
-    race_name: Optional[str] = Column(String)
-    location: Optional[str] = Column(String)
+    id: Mapped[int] = Column(Integer, primary_key=True)
+    athlete_id: Mapped[int] = Column(Integer, ForeignKey('athletes.id'), nullable=False)
+    race_date: Mapped[Date] = Column(Date, nullable=False)
+    discipline: Mapped[Discipline] = Column(Enum(Discipline), nullable=False)
+    points: Mapped[Optional[float]] = Column(Float)
+    rank: Mapped[Optional[int]] = Column(Integer)
+    race_name: Mapped[Optional[str]] = Column(String)
+    location: Mapped[Optional[str]] = Column(String)
+    win_time: Mapped[Optional[float]] = Column(Float)  # Winner's time in seconds
+    racer_time: Mapped[Optional[float]] = Column(Float)  # Racer's time in seconds
+    penalty: Mapped[Optional[float]] = Column(Float)  # Calculated penalty value
+    race_points: Mapped[Optional[float]] = Column(Float)  # Race points
+    race_category: Mapped[Optional[str]] = Column(String)  # FIS race category
+    total_starters: Mapped[Optional[int]] = Column(Integer)  # Total starters
+    total_finishers: Mapped[Optional[int]] = Column(Integer)  # Total finishers
     
-    athlete: Athlete = relationship("Athlete", back_populates="results")
+    athlete: Mapped["Athlete"] = relationship("Athlete", back_populates="results")
 
 class PointsList(Base):
     """Database model representing a FIS points list publication.
@@ -89,13 +96,13 @@ class PointsList(Base):
     """
     __tablename__ = 'points_lists'
 
-    id: int = Column(Integer, primary_key=True)
-    publication_date: Date = Column(Date, nullable=False)
-    valid_from: Date = Column(Date, nullable=False)
-    valid_to: Date = Column(Date, nullable=False)
-    season: str = Column(String, nullable=False)
+    id: Mapped[int] = Column(Integer, primary_key=True)
+    publication_date: Mapped[Date] = Column(Date, nullable=False)
+    valid_from: Mapped[Date] = Column(Date, nullable=False)
+    valid_to: Mapped[Date] = Column(Date, nullable=False)
+    season: Mapped[str] = Column(String, nullable=False)
     
-    athlete_points: List["AthletePoints"] = relationship("AthletePoints", back_populates="points_list")
+    athlete_points: Mapped[List["AthletePoints"]] = relationship("AthletePoints", back_populates="points_list")
 
 class AthletePoints(Base):
     """Database model representing an athlete's FIS points and rankings.
@@ -117,17 +124,17 @@ class AthletePoints(Base):
     """
     __tablename__ = 'athlete_points'
 
-    id: int = Column(Integer, primary_key=True)
-    athlete_id: int = Column(Integer, ForeignKey('athletes.id'), nullable=False)
-    points_list_id: int = Column(Integer, ForeignKey('points_lists.id'), nullable=False)
-    sl_points: Optional[float] = Column(Float)
-    gs_points: Optional[float] = Column(Float)
-    sg_points: Optional[float] = Column(Float)
-    dh_points: Optional[float] = Column(Float)
-    sl_rank: Optional[int] = Column(Integer)  # World rank position in Slalom
-    gs_rank: Optional[int] = Column(Integer)  # World rank position in Giant Slalom
-    sg_rank: Optional[int] = Column(Integer)  # World rank position in Super-G
-    dh_rank: Optional[int] = Column(Integer)  # World rank position in Downhill
+    id: Mapped[int] = Column(Integer, primary_key=True)
+    athlete_id: Mapped[int] = Column(Integer, ForeignKey('athletes.id'), nullable=False)
+    points_list_id: Mapped[int] = Column(Integer, ForeignKey('points_lists.id'), nullable=False)
+    sl_points: Mapped[Optional[float]] = Column(Float)
+    gs_points: Mapped[Optional[float]] = Column(Float)
+    sg_points: Mapped[Optional[float]] = Column(Float)
+    dh_points: Mapped[Optional[float]] = Column(Float)
+    sl_rank: Mapped[Optional[int]] = Column(Integer)  # World rank position in Slalom
+    gs_rank: Mapped[Optional[int]] = Column(Integer)  # World rank position in Giant Slalom
+    sg_rank: Mapped[Optional[int]] = Column(Integer)  # World rank position in Super-G
+    dh_rank: Mapped[Optional[int]] = Column(Integer)  # World rank position in Downhill
     
-    athlete: Athlete = relationship("Athlete", back_populates="points")
-    points_list: PointsList = relationship("PointsList", back_populates="athlete_points") 
+    athlete: Mapped["Athlete"] = relationship("Athlete", back_populates="points")
+    points_list: Mapped["PointsList"] = relationship("PointsList", back_populates="athlete_points") 
