@@ -9,10 +9,8 @@ def get_database_url():
     return DATABASE_URL
 
 def init_db():
-    """Initialize database connection and create tables."""
-    engine = create_engine(get_database_url())
-    Base.metadata.create_all(engine)
-    return engine
+    """Initialize database connection."""
+    return create_engine(get_database_url())
 
 def get_session():
     """Create a new database session."""

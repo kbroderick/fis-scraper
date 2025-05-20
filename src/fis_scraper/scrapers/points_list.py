@@ -9,6 +9,14 @@ import os
 from urllib.parse import urljoin
 from typing import List, Dict, Optional, Tuple, Union
 from sqlalchemy.orm import Session
+import logging
+
+# Add logging configuration
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger(__name__)
 
 class PointsListScraper:
     """Scraper for FIS points lists from the FIS website.
@@ -177,3 +185,32 @@ class PointsListScraper:
         """
         match = re.search(r'(\d{4}/\d{2})', name)
         return match.group(1) if match else None 
+
+def main():
+    """Main entry point for the points list scraper."""
+    try:
+        logger.info("Starting FIS points list scraper")
+        scraper = PointsListScraper()
+        
+        # Get available points lists
+        logger.info("Fetching available points lists")
+        points_lists = scraper.get_points_lists()
+        logger.info(f"Found {len(points_lists)} points lists")
+        
+        # Process each points list
+        for i, points_list in enumerate(points_lists, 1):
+            logger.info(f"Processing points list {i}/{len(points_lists)}: {points_list['name']}")
+            success = scraper.download_and_process_points_list(points_list)
+            if success:
+                logger.info(f"Successfully processed points list: {points_list['name']}")
+            else:
+                logger.error(f"Failed to process points list: {points_list['name']}")
+        
+        logger.info("Points list scraping completed")
+        
+    except Exception as e:
+        logger.error(f"An error occurred: {str(e)}", exc_info=True)
+        raise
+
+if __name__ == "__main__":
+    main() 

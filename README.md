@@ -25,6 +25,16 @@ This Python application scrapes and analyzes FIS (International Ski Federation) 
    ```bash
    pip install -r requirements.txt
    ```
+4. Prep DB
+   # First, create the ENUM types in PostgreSQL
+   psql -d your_database_name
+   DROP TYPE IF EXISTS gender CASCADE;
+   DROP TYPE IF EXISTS discipline CASCADE;
+   CREATE TYPE gender AS ENUM ('M', 'F');
+   CREATE TYPE discipline AS ENUM ('SL', 'GS', 'SG', 'DH');
+   
+   # Then run the migrations
+   alembic upgrade head
 
 ## Usage
 
