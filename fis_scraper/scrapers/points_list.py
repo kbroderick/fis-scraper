@@ -1,16 +1,18 @@
 import requests
+import re
+import os
+import logging
+
+from typing import List, Dict, Optional, Tuple, Union
+from sqlalchemy.orm import Session
+from urllib.parse import urljoin
 from bs4 import BeautifulSoup
 from bs4 import Tag
 from datetime import datetime, date
 import pandas as pd
+
 from ..database.connection import get_session
 from ..database.models import PointsList, Athlete, AthletePoints, Gender
-import re
-import os
-from urllib.parse import urljoin
-from typing import List, Dict, Optional, Tuple, Union
-from sqlalchemy.orm import Session
-import logging
 
 # Add logging configuration
 logging.basicConfig(

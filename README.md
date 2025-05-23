@@ -43,7 +43,7 @@ This Python application scrapes and analyzes FIS (International Ski Federation) 
    ```bash
    python main.py
    ```
-3. Analyze athlete performance:
+3. Analyze athlete performance: (this doesn't work yet)
    ```bash
    python -m fis_scraper.analysis.performance
    ```
