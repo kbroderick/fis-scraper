@@ -41,7 +41,7 @@ This Python application scrapes and analyzes FIS (International Ski Federation) 
 1. Configure database settings in `.env` file
 2. Run the scraper:
    ```bash
-   python -m fis_scraper.scrapers.points_list
+   python main.py
    ```
 3. Analyze athlete performance:
    ```bash
@@ -52,8 +52,7 @@ This Python application scrapes and analyzes FIS (International Ski Federation) 
 
 ```
 py-scrape-ai/
-├── src/
-│   └── fis_scraper/
+├── fis_scraper/
 │       ├── database/     # Database models and connection
 │       ├── scrapers/     # Web scraping components
 │       └── analysis/     # Data analysis tools

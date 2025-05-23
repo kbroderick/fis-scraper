@@ -1,6 +1,6 @@
 import pytest
-from src.fis_scraper.scrapers.athlete_results import AthleteResultsScraper
-from src.fis_scraper.database.models import Athlete, RaceResult, Discipline, Gender
+from fis_scraper.scrapers.athlete_results import AthleteResultsScraper
+from fis_scraper.database.models import Athlete, RaceResult, Discipline, Gender
 from datetime import datetime, date
 from bs4 import BeautifulSoup
 

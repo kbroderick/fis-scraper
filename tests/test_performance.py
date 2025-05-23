@@ -1,6 +1,6 @@
 import pytest
-from src.fis_scraper.analysis.performance import PerformanceAnalyzer
-from src.fis_scraper.database.models import Athlete, RaceResult, AthletePoints, PointsList, Discipline, Gender
+from fis_scraper.analysis.performance import PerformanceAnalyzer
+from fis_scraper.database.models import Athlete, RaceResult, AthletePoints, PointsList, Discipline, Gender
 from datetime import datetime, date, timedelta
 import pandas as pd
 
