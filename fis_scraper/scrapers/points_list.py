@@ -50,19 +50,18 @@ class PointsListScraper:
         """
         return f"F{list_data['sectorcode']}_{list_data['seasoncode']}{list_data['listid']}"
     
-    def _get_filelocation_for_points_list(self, filename: str) -> str:
+    def _get_filelocation_for_points_list(self, list_data: Dict[str, Union[str, date]]) -> str:
         """Get the file location for a points list.
         
         Args:
-            filename: Base filename for the points list eg "FAL_202383"
+            list_data: Dictionary containing points list info
 
         Returns:
             str: File location for the points list of form
-            "data/points_lists/{filename}.xlsx"
+            "data/points_lists/FAL_202383.xlsx"
         """
+        filename = self._get_filename_for_points_list(list_data)
         return f"{self.DATA_FOLDER}/points_lists/{filename}.xlsx"
-
-    def _get_filename_for_points_list(self, list_data: Dict[str, Union[str, date]]) -> str:
         
     def get_points_lists(self) -> List[Dict[str, Union[str, date]]]:
         """Scrape the FIS points lists page and return list of available
@@ -83,7 +82,7 @@ class PointsListScraper:
         response = requests.get(self.BASE_URL)
         soup = BeautifulSoup(response.text, 'html.parser')
        
-         for row in soup.find_all("div", {"class":"container g-xs-24"}):
+        for row in soup.find_all("div", {"class":"container g-xs-24"}):
             list_data = self._parse_list_row(row)
             if list_data['valid_from'] >= start_date and list_data['valid_from'] <= end_date:
                 points_lists.append(list_data)
@@ -183,10 +182,8 @@ class PointsListScraper:
         return None, None
     
     def download_and_process_points_list(self, points_list_data: Dict[str, Union[str, date]],
-                                         start_date: Optional[datetime.date] = \
-                                         datetime.date(2001, 10, 01), 
-                                         end_date: Optional[datetime.date] = \
-                                         datetime.date.today()) -> bool:
+                                        start_date: Optional[datetime.date] = None,
+                                        end_date: Optional[datetime.date] = None) -> bool:
         """Download and process a single points list.
         
         Args:
@@ -201,8 +198,9 @@ class PointsListScraper:
         Returns:
             bool: True if processing was successful, False otherwise
         """
-        breakpoint()
-
+        # Set default dates if not provided
+        if start_date is None:
+            start_date = datetime.date(2001, 10, 1)
         if end_date is None:
             end_date = datetime.date.today()
 
@@ -210,6 +208,7 @@ class PointsListScraper:
             or points_list_data['valid_from'] > end_date:
             return False
 
+        breakpoint()
         try:
             response = requests.get(points_list_data['excel_url'])
             if response.status_code != 200:

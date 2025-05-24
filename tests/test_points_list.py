@@ -70,6 +70,22 @@ def test_extract_season(scraper):
     season = scraper._extract_season(name)
     assert season is None
 
+def test_get_filelocation_for_points_list(scraper):
+    list_data = {
+        'sectorcode': 'AL',
+        'seasoncode': '2025',
+        'listid': '413'
+    }
+    assert scraper._get_filelocation_for_points_list(list_data) == "data/points_lists/FAL_2025413.xlsx"
+
+def test_get_filename_for_points_list(scraper):
+    list_data = {
+        'sectorcode': 'AL',
+        'seasoncode': '2025',
+        'listid': '413'
+    }
+    assert scraper._get_filename_for_points_list(list_data) == "FAL_2025413"
+
 def test_save_points_list(scraper):
     # Create test data
     points_list_data = {
