@@ -2,6 +2,7 @@ import requests
 import re
 import os
 import logging
+import datetime
 
 from typing import List, Dict, Optional, Tuple, Union
 from sqlalchemy.orm import Session
@@ -30,14 +31,43 @@ class PointsListScraper:
     
     BASE_URL: str = "https://www.fis-ski.com/DB/alpine-skiing/fis-points-lists.html"
     DATA_URL: str = "https://data.fis-ski.com"
+    DATA_FOLDER: str = "data" # local folder for file storage, lists in points_lists subfolder
     
     def __init__(self) -> None:
         """Initialize the PointsListScraper with a database session."""
         self.session: Session = get_session()
+
+    def _get_filename_for_points_list(self, list_data: Dict[str, Union[str, date]]) -> str:
+        """Get the filename for a points list.
+        
+        Args:
+            list_data: Dictionary containing points list info
+
+        Returns:
+            str: Filename for the points list of form
+            F{sectorcode}_{seasoncode}{listid} (e.g. FAL_202383 for the
+            2023/24 alpine list with ID 83)
+        """
+        return f"F{list_data['sectorcode']}_{list_data['seasoncode']}{list_data['listid']}"
+    
+    def _get_filelocation_for_points_list(self, filename: str) -> str:
+        """Get the file location for a points list.
+        
+        Args:
+            filename: Base filename for the points list eg "FAL_202383"
+
+        Returns:
+            str: File location for the points list of form
+            "data/points_lists/{filename}.xlsx"
+        """
+        return f"{self.DATA_FOLDER}/points_lists/{filename}.xlsx"
+
+    def _get_filename_for_points_list(self, list_data: Dict[str, Union[str, date]]) -> str:
         
     def get_points_lists(self) -> List[Dict[str, Union[str, date]]]:
-        """Scrape the FIS points lists page and return list of available points lists.
-        
+        """Scrape the FIS points lists page and return list of available
+        points lists.
+
         Returns:
             List[Dict[str, Union[str, date]]]: List of dictionaries containing points list information:
                 - sectorcode: Sector code (e.g., "AL")
@@ -48,13 +78,15 @@ class PointsListScraper:
                 - valid_to: End date of validity period
                 - excel_url: URL to download the Excel file
         """
+        points_lists = []
+ 
         response = requests.get(self.BASE_URL)
         soup = BeautifulSoup(response.text, 'html.parser')
-        
-        points_lists = []
-
-        for row in soup.find_all("div", {"class":"container g-xs-24"}):
-            points_lists.append(self._parse_list_row(row))
+       
+         for row in soup.find_all("div", {"class":"container g-xs-24"}):
+            list_data = self._parse_list_row(row)
+            if list_data['valid_from'] >= start_date and list_data['valid_from'] <= end_date:
+                points_lists.append(list_data)
         
         return points_lists
     
@@ -65,7 +97,8 @@ class PointsListScraper:
             row: BeautifulSoup element representing a points list row
             
         Returns:
-            Dict[str, Union[str, date]]: Dictionary containing points list information
+            Dict[str, Union[str, date]]: Dictionary containing points
+            list information
         """
         # NB: Javascript onclick parameters are encoded in the onclick attribute eg
         # onclick="export_fispointslist('AL','2023/24','83');"
@@ -92,13 +125,17 @@ class PointsListScraper:
             text: String containing title information
             
         Returns:
-            Tuple[str, Optional[date], Optional[date]]: Tuple of (name, valid_from, valid_to)
+            Tuple[str, Optional[date], Optional[date]]: Tuple of 
+            (name, valid_from, valid_to)
         """
         # First try to match regular points list
-        points_list_regex = r"(\d.+ FIS points list \d\d\d\d.\d\d).+(\d\d-\d\d-\d\d\d\d).+(\d\d-\d\d-\d\d\d\d)"
+        points_list_regex = \
+            r"(\d.+ FIS points list \d\d\d\d.\d\d).+(\d\d-\d\d-\d\d\d\d).+(\d\d-\d\d-\d\d\d\d)"
         points_list_match = re.search(points_list_regex, text, re.DOTALL + re.IGNORECASE)
         if points_list_match:
-            return points_list_match[1], self._parse_date(points_list_match[2]), self._parse_date(points_list_match[3])
+            return points_list_match[1], \
+                self._parse_date(points_list_match[2]), \
+                self._parse_date(points_list_match[3])
             
         # If not a regular points list, try to match base list
         base_list_regex = r"(Internal Base list|Base List) (\d\d\d\d)"
@@ -132,7 +169,8 @@ class PointsListScraper:
             date_str: String in format "DD-MM-YYYY - DD-MM-YYYY"
             
         Returns:
-            Tuple[Optional[date], Optional[date]]: Tuple of (valid_from, valid_to) dates
+            Tuple[Optional[date], Optional[date]]: Tuple of 
+            (valid_from, valid_to) dates
         """
         try:
             parts = date_str.split(' - ')
@@ -144,22 +182,40 @@ class PointsListScraper:
             pass
         return None, None
     
-    def download_and_process_points_list(self, points_list_data: Dict[str, Union[str, date]]) -> bool:
+    def download_and_process_points_list(self, points_list_data: Dict[str, Union[str, date]],
+                                         start_date: Optional[datetime.date] = \
+                                         datetime.date(2001, 10, 01), 
+                                         end_date: Optional[datetime.date] = \
+                                         datetime.date.today()) -> bool:
         """Download and process a single points list.
         
         Args:
-            points_list_data: Dictionary containing points list information
+            points_list_data: Dictionary containing points list info
+            start_date: Valid open date from which to start scraping
+                points lists; defaults to 2001-10-01, which will capture
+                all consistent history on FIS site (before the first 
+                2001/02 list, data gap to 3rd list 97/98, which is 
+                oldest on site)
+            end_date: Date to which to scrape lists; default is today                    
             
         Returns:
             bool: True if processing was successful, False otherwise
         """
         breakpoint()
+
+        if end_date is None:
+            end_date = datetime.date.today()
+
+        if points_list_data['valid_from'] < start_date \
+            or points_list_data['valid_from'] > end_date:
+            return False
+
         try:
             response = requests.get(points_list_data['excel_url'])
             if response.status_code != 200:
                 return False
             
-            temp_file = 'temp_points.xlsx'
+            temp_file = f'{self._get_filename_for_points_list(points_list_data)}.xlsx'
             with open(temp_file, 'wb') as f:
                 f.write(response.content)
             
@@ -173,7 +229,8 @@ class PointsListScraper:
             print(f"Error processing points list: {e}")
             return False
     
-    def _save_points_list(self, points_list_data: Dict[str, Union[str, date]], df: pd.DataFrame) -> None:
+    def _save_points_list(self, points_list_data: Dict[str, Union[str, date]],
+                          df: pd.DataFrame) -> None:
         """Save points list data to database.
         
         Args:
@@ -194,9 +251,10 @@ class PointsListScraper:
                 athlete = self.session.query(Athlete).filter_by(fis_id=row['FIS Code']).first()
                 if not athlete:
                     birth_year = None
+                    birth_date = None
                     if 'Birth Date' in row and pd.notna(row['Birth Date']):
                         try:
-                            birth_date = pd.to_datetime(row['Birth Date'])
+                            birth_date = pd.to_datetime(row['Birth Date']).date()
                             birth_year = birth_date.year
                         except:
                             pass
@@ -207,7 +265,7 @@ class PointsListScraper:
                         country=row['Nation'],
                         nation_code=row.get('Nation Code', row['Nation'][:3].upper()),
                         gender=Gender.M if row.get('Gender', 'M') == 'M' else Gender.F,
-                        birth_date=pd.to_datetime(row['Birth Date']).date() if 'Birth Date' in row and pd.notna(row['Birth Date']) else None,
+                        birth_date=birth_date,
                         birth_year=birth_year,
                         ski_club=row.get('Ski Club', ''),
                         national_code=row.get('National Code', '')
@@ -241,11 +299,14 @@ class PointsListScraper:
         Args:
             sectorcode: Sector code (e.g., "AL")
             seasoncode: Season code (e.g., "2023/24")
-            listId: List ID (e.g., "83"); None will return Base List for given season code
+            listId: List ID (e.g., "83"); None will return Base List for
+            given season code
         """
-        url = f"{self.DATA_URL}/fis_athletes/ajax/fispointslistfunctions/export_fispointslist.html?export_xlsx=true&sectorcode={sectorcode}&seasoncode={seasoncode}"
+        url_path = "fis_athletes/ajax/fispointslistfunctions/export_fispointslist.html"
+        list_params = f"export_xlsx=true&sectorcode={sectorcode}&seasoncode={seasoncode}"
         if listid:
-            url += f"&listid={listid}"
+            list_params += f"&listid={listid}"
+        url = f"{self.DATA_URL}/{url_path}?{list_params}"
         return url
 
     def _extract_season(self, name: str) -> Optional[str]:
@@ -255,7 +316,8 @@ class PointsListScraper:
             name: Points list name string
             
         Returns:
-            Optional[str]: Season string (e.g., "2023/24") or None if not found
+            Optional[str]: Season string (e.g., "2023/24") or None
+            if not found
         """
         match = re.search(r'(\d{4}/\d{2})', name)
         return match.group(1) if match else None 
