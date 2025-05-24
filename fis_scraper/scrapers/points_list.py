@@ -1,8 +1,10 @@
+from pprint import pprint
+from numpy import NaN
 import requests
 import re
 import os
 import logging
-import datetime
+from datetime import datetime, date
 
 from typing import List, Dict, Optional, Tuple, Union
 from sqlalchemy.orm import Session
@@ -58,14 +60,17 @@ class PointsListScraper:
 
         Returns:
             str: File location for the points list of form
-            "data/points_lists/FAL_202383.xlsx"
+            "data/points_lists/FAL_202383.csv"
         """
         filename = self._get_filename_for_points_list(list_data)
-        return f"{self.DATA_FOLDER}/points_lists/{filename}.xlsx"
+        return f"{self.DATA_FOLDER}/points_lists/{filename}.csv"
         
-    def get_points_lists(self) -> List[Dict[str, Union[str, date]]]:
+    def get_points_lists(self, include_base_lists: bool = False) -> List[Dict[str, Union[str, date]]]:
         """Scrape the FIS points lists page and return list of available
         points lists.
+
+        Args:
+            include_base_lists: Whether to include base lists in the returned list
 
         Returns:
             List[Dict[str, Union[str, date]]]: List of dictionaries containing points list information:
@@ -75,7 +80,7 @@ class PointsListScraper:
                 - name: Name of the points list
                 - valid_from: Start date of validity period
                 - valid_to: End date of validity period
-                - excel_url: URL to download the Excel file
+                - csv_url: URL to download the CSV file
         """
         points_lists = []
  
@@ -84,9 +89,8 @@ class PointsListScraper:
        
         for row in soup.find_all("div", {"class":"container g-xs-24"}):
             list_data = self._parse_list_row(row)
-            if list_data['valid_from'] >= start_date and list_data['valid_from'] <= end_date:
+            if list_data['valid_from'] is not None or include_base_lists:
                 points_lists.append(list_data)
-        
         return points_lists
     
     def _parse_list_row(self, row: Tag ) -> Dict[str, Union[str, date]]:
@@ -114,7 +118,7 @@ class PointsListScraper:
             'name': list_title[0],
             'valid_from': list_title[1],
             'valid_to': list_title[2],
-            'excel_url': self._get_list_url(matches[1], matches[2], matches[3])
+            'csv_url': self._get_list_url(matches[1], matches[2], matches[3])
         }
 
     def _parse_title(self, text: str) -> Tuple[str, Optional[date], Optional[date]]:
@@ -198,30 +202,26 @@ class PointsListScraper:
         Returns:
             bool: True if processing was successful, False otherwise
         """
-        # Set default dates if not provided
         if start_date is None:
-            start_date = datetime.date(2001, 10, 1)
+            start_date = date(2001, 10, 1)
         if end_date is None:
-            end_date = datetime.date.today()
-
+            end_date = date.today()
         if points_list_data['valid_from'] < start_date \
             or points_list_data['valid_from'] > end_date:
             return False
 
-        breakpoint()
         try:
-            response = requests.get(points_list_data['excel_url'])
+            response = requests.get(points_list_data['csv_url'])
             if response.status_code != 200:
                 return False
             
-            temp_file = f'{self._get_filename_for_points_list(points_list_data)}.xlsx'
-            with open(temp_file, 'wb') as f:
+            points_list_file = f'{self._get_filelocation_for_points_list(points_list_data)}'
+            with open(points_list_file, 'wb') as f:
                 f.write(response.content)
             
-            df = pd.read_excel(temp_file)
+            df = pd.read_csv(points_list_file)
             self._save_points_list(points_list_data, df)
             
-            os.remove(temp_file)
             return True
             
         except Exception as e:
@@ -240,34 +240,37 @@ class PointsListScraper:
             publication_date=datetime.now().date(),
             valid_from=points_list_data['valid_from'],
             valid_to=points_list_data['valid_to'],
-            season=self._extract_season(points_list_data['name'])
+            season=points_list_data['seasoncode']
         )
         self.session.add(points_list)
         self.session.flush()
         
         for _, row in df.iterrows():
             try:
-                athlete = self.session.query(Athlete).filter_by(fis_id=row['FIS Code']).first()
+                athlete = self.session.query(Athlete).filter_by(fis_id=row['Fiscode']).first()
                 if not athlete:
                     birth_year = None
                     birth_date = None
-                    if 'Birth Date' in row and pd.notna(row['Birth Date']):
+                    if 'Birthdate' in row and pd.notna(row['Birthdate']):
                         try:
-                            birth_date = pd.to_datetime(row['Birth Date']).date()
+                            birth_date = pd.to_datetime(row['Birthdate']).date()
                             birth_year = birth_date.year
-                        except:
+                        except (DateParseError, OverflowError, ParserError, ValueError):
+                            birth_year = row['Birthyear']
                             pass
+                    else:
+                        birth_year = row['Birthyear']
                     
                     athlete = Athlete(
-                        fis_id=row['FIS Code'],
-                        name=row['Name'],
-                        country=row['Nation'],
-                        nation_code=row.get('Nation Code', row['Nation'][:3].upper()),
+                        fis_id=row['Fiscode'],
+                        last_name=row['Lastname'],
+                        first_name=row['Firstname'],
+                        nation_code=row['Nationcode'],
                         gender=Gender.M if row.get('Gender', 'M') == 'M' else Gender.F,
                         birth_date=birth_date,
                         birth_year=birth_year,
-                        ski_club=row.get('Ski Club', ''),
-                        national_code=row.get('National Code', '')
+                        ski_club=self._str_or_none(row['Skiclub']),
+                        national_code=self._str_or_none(row['Nationalcode'])
                     )
                     self.session.add(athlete)
                     self.session.flush()
@@ -275,23 +278,76 @@ class PointsListScraper:
                 athlete_points = AthletePoints(
                     athlete_id=athlete.id,
                     points_list_id=points_list.id,
-                    sl_points=row.get('SL', None),
-                    gs_points=row.get('GS', None),
-                    sg_points=row.get('SG', None),
-                    dh_points=row.get('DH', None),
-                    sl_rank=row.get('SLpos', None),
-                    gs_rank=row.get('GSpos', None),
-                    sg_rank=row.get('SGpos', None),
-                    dh_rank=row.get('DHpos', None)
+                    sl_points=self._float_or_none(row['SLpoints']),
+                    gs_points=self._float_or_none(row['GSpoints']),
+                    sg_points=self._float_or_none(row['SGpoints']),
+                    dh_points=self._float_or_none(row['DHpoints']),
+                    sl_rank=self._int_or_none(row['SLpos']),
+                    gs_rank=self._int_or_none(row['GSpos']),
+                    sg_rank=self._int_or_none(row['SGpos']),
+                    dh_rank=self._int_or_none(row['DHpos'])
                 )
                 self.session.add(athlete_points)
                 
             except Exception as e:
-                print(f"Error processing row: {e}")
+                logger.error(f"Error processing row: {e}")
+                logger.debug(pprint(row))
                 continue
         
         self.session.commit()
+
+
+    def _str_or_none(self, value: str) -> Optional[str]:
+        """Convert string to None if it's empty, otherwise return the string.
+        
+        Args:
+            value: String value
+        
+        Returns:
+            String if value can be so coerced
+            None if provided None, NaN, or non-convertible value
+        """
+        if value is None:
+            return None
+        elif pd.isna(value):
+            return None
+        
+        return str(value)
     
+    def _int_or_none(self, value: float) -> Optional[int]:
+        """Convert float to int if it's an integer, otherwise return None.
+        
+        Args:
+            value: Float value
+        
+        Returns:
+            integer value if given number that can be converted to int
+            None otherwise
+        """
+        try:
+            return int(value)
+        except (TypeError, ValueError):
+            return None
+        return None
+    
+    def _float_or_none(self, value: float) -> Optional[float]:
+        """Convert float to float if it's a float, otherwise return None.
+        
+        Args:
+            value: Float value
+        
+        Returns:
+            float value if given number that can be converted to float
+            None otherwise; NaN is converted to None
+        """
+        if pd.isna(value):
+            return None
+        try:
+            return float(value)
+        except (TypeError, ValueError):
+            return None
+        return None
+
     def _get_list_url(self, sectorcode: "AL", seasoncode, listid) -> str:
         """Get the URL for a specific points list.
         
@@ -302,7 +358,7 @@ class PointsListScraper:
             given season code
         """
         url_path = "fis_athletes/ajax/fispointslistfunctions/export_fispointslist.html"
-        list_params = f"export_xlsx=true&sectorcode={sectorcode}&seasoncode={seasoncode}"
+        list_params = f"export_csv=true&sectorcode={sectorcode}&seasoncode={seasoncode}"
         if listid:
             list_params += f"&listid={listid}"
         url = f"{self.DATA_URL}/{url_path}?{list_params}"

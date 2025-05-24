@@ -26,13 +26,8 @@ This Python application scrapes and analyzes FIS (International Ski Federation) 
    pip install -r requirements.txt
    ```
 4. Prep DB
-   # First, create the ENUM types in PostgreSQL
-   psql -d your_database_name
-   DROP TYPE IF EXISTS gender CASCADE;
-   DROP TYPE IF EXISTS discipline CASCADE;
-   CREATE TYPE gender AS ENUM ('M', 'F');
-   CREATE TYPE discipline AS ENUM ('SL', 'GS', 'SG', 'DH');
-   
+   # create DB
+   createdb fis_data
    # Then run the migrations
    alembic upgrade head
 
@@ -40,9 +35,22 @@ This Python application scrapes and analyzes FIS (International Ski Federation) 
 
 1. Configure database settings in `.env` file
 2. Run the scraper:
+
+   **CAUTION**
+   This will attempt to ingest all available FIS points lists since 2002. As of this writing, there are
+   331 available. Expect this to take a while.
    ```bash
    python main.py
    ```
+
+   TODO:
+      add ability to ingest race results via scraping
+      allow for CSV input of roster for eval
+      allow for web scraping to generate roster
+      create per-athlete analysis (points, rank, and results over time)
+      create per-roster analysis (points, rank and result over time; particular attention to
+         delta in rank between selection and graduation)
+
 3. Analyze athlete performance: (this doesn't work yet)
    ```bash
    python -m fis_scraper.analysis.performance
@@ -57,6 +65,8 @@ py-scrape-ai/
 │       ├── scrapers/     # Web scraping components
 │       └── analysis/     # Data analysis tools
 └── tests/               # Test suite
+|-- data/
+|     |----- points_lists # saved points lists
 ```
 
 ## Testing

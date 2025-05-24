@@ -37,14 +37,14 @@ class Athlete(Base):
 
     id: Mapped[int] = Column(Integer, primary_key=True)
     fis_id: Mapped[int] = Column(Integer, unique=True, nullable=False)
-    name: Mapped[str] = Column(String, nullable=False)
-    country: Mapped[str] = Column(String, nullable=False)
+    last_name: Mapped[str] = Column(String, nullable=False)
+    first_name: Mapped[str] = Column(String, nullable=False)
     nation_code: Mapped[str] = Column(CHAR(3), nullable=False)  # 3-letter country code
     gender: Mapped[Gender] = Column(Enum(Gender), nullable=False)
     birth_date: Mapped[Optional[Date]] = Column(Date)
-    birth_year: Mapped[Optional[int]] = Column(Integer)  # For quick filtering/analysis
+    birth_year: Mapped[Optional[int]] = Column(Integer)
     ski_club: Mapped[Optional[str]] = Column(String)
-    national_code: Mapped[Optional[str]] = Column(String)  # National federation code
+    national_code: Mapped[Optional[str]] = Column(String)  # National federation skier ID
     
     results: Mapped[List["RaceResult"]] = relationship("RaceResult", back_populates="athlete")
     points: Mapped[List["AthletePoints"]] = relationship("AthletePoints", back_populates="athlete")

@@ -12,7 +12,7 @@ def analyzer():
 def test_athlete(analyzer):
     # Create a test athlete
     athlete = Athlete(
-        fis_id=12345,
+        fis_id=123456,
         name="Test Athlete",
         country="USA",
         nation_code="USA",
