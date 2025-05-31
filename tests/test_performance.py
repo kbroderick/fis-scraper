@@ -1,7 +1,7 @@
 import pytest
 from fis_scraper.analysis.performance import PerformanceAnalyzer
 from fis_scraper.database.models import Athlete, RaceResult, AthletePoints, PointsList, Discipline, Gender
-from datetime import datetime, date, timedelta
+from datetime import date 
 import pandas as pd
 
 @pytest.fixture

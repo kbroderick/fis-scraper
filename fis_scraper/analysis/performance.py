@@ -1,9 +1,9 @@
 from datetime import datetime, timedelta, date
 from ..database.connection import get_session
-from ..database.models import Athlete, RaceResult, AthletePoints, Discipline, PointsList
+from ..database.models import RaceResult, AthletePoints, PointsList
 import pandas as pd
 import numpy as np
-from typing import Dict, List, Optional, Union, Any
+from typing import Dict, Optional, Any
 from sqlalchemy.orm import Session
 
 class PerformanceAnalyzer:

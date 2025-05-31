@@ -1,12 +1,11 @@
 import pytest
 import os
 import requests
-import unittest
 
-from datetime import datetime, date
+from datetime import date
 from bs4 import BeautifulSoup
-from urllib import request, response
-from unittest.mock import patch, mock_open, MagicMock
+from urllib import response
+from unittest.mock import MagicMock
 
 import fis_scraper
 from fis_scraper.scrapers.points_list import PointsListScraper
@@ -200,19 +199,19 @@ def test_save_points_list(scraper):
     assert athlete.gender == Gender.M
     assert athlete.birth_date == date(2006, 2, 10)
     assert athlete.birth_year == 2006
-    assert athlete.ski_club == None
-    assert athlete.national_code == None
+    assert athlete.ski_club is None
+    assert athlete.national_code is None
     
     athlete_points = scraper.session.query(AthletePoints).first()
     assert athlete_points is not None
     assert athlete_points.sl_points == 680.26
     assert athlete_points.gs_points == 454.43
-    assert athlete_points.sg_points == None
-    assert athlete_points.dh_points == None
+    assert athlete_points.sg_points is None
+    assert athlete_points.dh_points is None
     assert athlete_points.sl_rank == 6063
     assert athlete_points.gs_rank == 5988
-    assert athlete_points.sg_rank == None
-    assert athlete_points.dh_rank == None
+    assert athlete_points.sg_rank is None
+    assert athlete_points.dh_rank is None
     
     # Clean up
     scraper.session.query(AthletePoints).delete()

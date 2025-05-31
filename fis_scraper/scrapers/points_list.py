@@ -1,18 +1,17 @@
 from pprint import pprint
-from numpy import NaN
 import requests
 import re
-import os
 import logging
 from datetime import datetime, date
 
 from typing import List, Dict, Optional, Tuple, Union
 from sqlalchemy.orm import Session
-from urllib.parse import urljoin
 from bs4 import BeautifulSoup
 from bs4 import Tag
-from datetime import datetime, date
 import pandas as pd
+from pandas._libs.tslibs.parsing import DateParseError
+
+from parser import ParserError
 
 from ..database.connection import get_session
 from ..database.models import PointsList, Athlete, AthletePoints, Gender
@@ -348,7 +347,7 @@ class PointsListScraper:
             return None
         return None
 
-    def _get_list_url(self, sectorcode: "AL", seasoncode, listid) -> str:
+    def _get_list_url(self, sectorcode: str, seasoncode: str, listid: Optional[str] = None) -> str:
         """Get the URL for a specific points list.
         
         Args:

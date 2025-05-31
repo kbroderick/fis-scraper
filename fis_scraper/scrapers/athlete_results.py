@@ -3,8 +3,6 @@ from bs4 import BeautifulSoup
 from datetime import datetime
 from ..database.connection import get_session
 from ..database.models import Athlete, RaceResult, Discipline, Gender
-import re
-from urllib.parse import urljoin
 
 class AthleteResultsScraper:
     BASE_URL = "https://www.fis-ski.com/DB/alpine-skiing/biographies.html"

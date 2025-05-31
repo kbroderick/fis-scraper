@@ -1,4 +1,4 @@
-import fis_scraper, fis_scraper.scrapers
+import fis_scraper
+import fis_scraper.scrapers
 
 fis_scraper.scrapers.points_list.main()
-

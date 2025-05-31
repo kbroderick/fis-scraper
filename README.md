@@ -11,7 +11,7 @@ This Python application scrapes and analyzes FIS (International Ski Federation) 
 - Individual athlete result tracking
 - Performance analysis over time
 - World ranking and FIS points trend analysis
-- SQLite database storage
+- Postgres database storage
 
 ## Installation
 
@@ -37,13 +37,14 @@ This Python application scrapes and analyzes FIS (International Ski Federation) 
 2. Run the scraper:
 
    **CAUTION**
-   This will attempt to ingest all available FIS points lists since 2002. As of this writing, there are
-   331 available. Expect this to take a while.
+   This will attempt to ingest all available FIS points lists since 2002. As of this writing, there
+   are 331 available. Expect this to take a while.
    ```bash
    python main.py
    ```
 
    TODO:
+      ability to ingest only new lists
       add ability to ingest race results via scraping
       allow for CSV input of roster for eval
       allow for web scraping to generate roster
