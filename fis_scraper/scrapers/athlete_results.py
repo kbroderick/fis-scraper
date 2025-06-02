@@ -3,6 +3,7 @@ from bs4 import BeautifulSoup, Tag
 from datetime import datetime
 from typing import Dict, Any
 import logging
+import re
 
 from ..database.connection import get_session
 from ..database.models import Athlete, RaceResult, Discipline, Gender
@@ -98,41 +99,130 @@ class AthleteResultsScraper:
         Returns:
             Dict[str, Any]: Dictionary of result row data
         """
-        cells = html_tag.find_all('div')
         try:
-            date_str = cells[0].text.strip()
-            race_date = datetime.strptime(date_str, '%d.%m.%Y').date()
+            # Extract URL and IDs from the href
+            href = html_tag.get('href', '')
+            competitorid = int(href.split('competitorid=')[1].split('&')[0]) if 'competitorid=' in href else None
+            fis_race_id = int(href.split('raceid=')[1]) if 'raceid=' in href else None
+            race_url = href
             
-            discipline = self._parse_discipline(cells[1].text.strip())
-            if not discipline:
+            # Get the container div
+            container = html_tag.find('div', {'class': 'container'})
+            if not container:
+                return None
+                
+            # Find all divs with text content
+            cells = container.find_all('div', recursive=False)
+            
+            # Parse date - handle both hyphen and dot separators
+            date_str = cells[0].text.strip()
+            try:
+                race_date = datetime.strptime(date_str, '%d-%m-%Y').date()
+            except ValueError:
+                try:
+                    race_date = datetime.strptime(date_str, '%d.%m.%Y').date()
+                except ValueError:
+                    print(f"Error parsing date: {date_str}")
+                    return None
+            
+            # Parse location and discipline robustly
+            discipline_str = None
+            gray_div = container.find('div', {'class': 'gray'})
+            if gray_div:
+                discipline_str = gray_div.text.strip()
+            discipline = self._parse_discipline(discipline_str) if discipline_str else None
+            
+            location = None
+            clip_div = container.find('div', {'class': 'clip-xs'})
+            if clip_div:
+                location = clip_div.text.strip()
+            elif len(cells) > 1:
+                location = cells[1].text.strip()
+            
+            # Parse nation
+            nation_div = container.find('div', {'class': 'country'})
+            nation = nation_div.find('span', {'class': 'country__name-short'}).text.strip() if nation_div else None
+            
+            # Parse race category: look for the first cell with text in ['FIS', 'NAC', 'Nor-Am Cup', etc.]
+            race_category = None
+            race_category_div = container.find('div',
+                                               {'class': 'g-sm-3 g-md-5 g-lg-5 justify-left hidden-xs hidden-md-up'})
+            if race_category_div:
+                race_category = race_category_div.text.strip()
+            
+            # Parse results section (last cell with justify-right)
+            results_div = None
+            for div in cells[::-1]:
+                if 'justify-right' in div.get('class', []):
+                    results_div = div
+                    break
+            if results_div:
+                result_divs = results_div.find_all('div', recursive=False)
+                result_texts = [d.text.strip() for d in result_divs if d.text.strip() != '']
+                rank = result_texts[0] if len(result_texts) > 0 else None
+                points = float(result_texts[1]) if len(result_texts) > 1 and self._is_float(result_texts[1]) else None
+                cup_points = int(result_texts[2]) if len(result_texts) > 2 and result_texts[2].isdigit() else None
+            else:
+                rank = None
+                points = None
+                cup_points = None
+            
+            # Handle DNF/DSQ/DNS and result field
+            result = None
+            if rank and not rank.isdigit():
+                result = rank
+                rank = None
+            else:
+                try:
+                    rank = int(rank) if rank else None
+                except ValueError:
+                    rank = None
+            
+            # Return None for invalid rows
+            if not ((discipline and location and fis_race_id) and (rank or result)):
                 return None
             
-            race_name = cells[2].text.strip()
-            location = cells[3].text.strip()
-            rank = int(cells[4].text.strip())
-            points = float(cells[5].text.strip()) if cells[5].text.strip() else None
-            
-            result = {
-                'athlete_id': athlete.id,
+            return {
                 'race_date': race_date,
                 'discipline': discipline,
-                'points': points,
+                'location': location,
                 'rank': rank,
-                'race_name': race_name,
-                'location': location
+                'result': result,
+                'points': points,
+                'race_category': race_category,
+                'competitorid': competitorid,
+                'fis_race_id': fis_race_id,
+                'cup_points': cup_points,
+                'nation': nation,
+                'race_url': race_url
             }
-            return result
             
-        except (ValueError, IndexError) as e:
-            print(f"Error parsing result row: {e}")
+        except (ValueError, IndexError, AttributeError) as e:
+            logging.error(f"Error parsing result row: {e}")
             return None
+
+    def _is_float(self, value):
+        try:
+            float(value)
+            return True
+        except ValueError:
+            return False
     
     def _parse_discipline(self, discipline_str):
-        """Convert discipline string to Discipline enum."""
+        """Convert discipline string to Discipline enum, handling both abbreviations and full names."""
+        if not discipline_str:
+            return None
+        discipline_str = discipline_str.strip().lower()
         discipline_map = {
-            'SL': Discipline.SL,
-            'GS': Discipline.GS,
-            'SG': Discipline.SG,
-            'DH': Discipline.DH
+            'sl': Discipline.SL,
+            'slalom': Discipline.SL,
+            'gs': Discipline.GS,
+            'giant slalom': Discipline.GS,
+            'sg': Discipline.SG,
+            'super-g': Discipline.SG,
+            'dh': Discipline.DH,
+            'downhill': Discipline.DH,
+            'ac': Discipline.AC,
+            'alpine combined': Discipline.AC,
         }
         return discipline_map.get(discipline_str) 

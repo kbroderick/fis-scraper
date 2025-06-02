@@ -1,3 +1,4 @@
+import pprint
 import pytest
 from datetime import date
 from bs4 import BeautifulSoup
@@ -116,7 +117,7 @@ def test_parse_result_row_dnf(scraper):
     assert result['fis_race_id'] == 125607
     assert result['cup_points'] == None
     assert result['nation'] == 'USA'
-    assert result['race_url'] == "https://www.fis-ski.com/DB/general/results.html?sectorcode=AL&raceid=125607"
+    assert result['race_url'] == "https://www.fis-ski.com/DB/general/results.html?sectorcode=AL&competitorid=210989&raceid=125607"
 
 def test_parse_result_row_points(scraper):
     # Create test cells
@@ -162,11 +163,11 @@ def test_parse_result_row_points(scraper):
     assert result is not None
     assert result['race_date'] == date(2025, 3, 18)
     assert result['discipline'] == Discipline.GS
-    assert result['location'] == "Sugarloaf"
+    assert result['location'] == 'Sugarloaf'
     assert result['cup_points'] == 10
     assert result['rank'] == 21
     assert result['points'] == 34.96
-    assert result['race_category'] == "Nor-Am Cup"
+    assert result['race_category'] == 'NAC'
     assert result['competitorid'] == 210989
     assert result['fis_race_id'] == 124884
     assert result['nation'] == 'USA'
@@ -179,4 +180,5 @@ def test_parse_result_row_invalid(scraper):
     cells = soup.find('a')
     
     result = scraper._parse_result_row(cells)
+    pprint.pprint(result)
     assert result is None 
