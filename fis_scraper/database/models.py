@@ -10,6 +10,7 @@ class Discipline(enum.Enum):
     GS = "Giant Slalom"
     SG = "Super-G"
     DH = "Downhill"
+    AC = "Alpine Combined"
 
 class Gender(enum.Enum):
     """Enumeration of athlete genders."""
@@ -134,10 +135,12 @@ class AthletePoints(Base):
     gs_points: Mapped[Optional[float]] = Column(Float)
     sg_points: Mapped[Optional[float]] = Column(Float)
     dh_points: Mapped[Optional[float]] = Column(Float)
+    ac_points: Mapped[Optional[float]] = Column(Float)
     sl_rank: Mapped[Optional[int]] = Column(Integer)  # World rank position in Slalom
     gs_rank: Mapped[Optional[int]] = Column(Integer)  # World rank position in Giant Slalom
     sg_rank: Mapped[Optional[int]] = Column(Integer)  # World rank position in Super-G
     dh_rank: Mapped[Optional[int]] = Column(Integer)  # World rank position in Downhill
+    ac_rank: Mapped[Optional[int]] = Column(Integer)  # World rank position in Alpine Combined
     
     athlete: Mapped["Athlete"] = relationship("Athlete", back_populates="points")
     points_list: Mapped["PointsList"] = relationship("PointsList", back_populates="athlete_points") 

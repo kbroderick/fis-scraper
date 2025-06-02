@@ -274,10 +274,12 @@ class PointsListScraper:
                     gs_points=self._float_or_none(row['GSpoints']),
                     sg_points=self._float_or_none(row['SGpoints']),
                     dh_points=self._float_or_none(row['DHpoints']),
+                    ac_points=self._float_or_none(row['ACpoints']),
                     sl_rank=self._int_or_none(row['SLpos']),
                     gs_rank=self._int_or_none(row['GSpos']),
                     sg_rank=self._int_or_none(row['SGpos']),
-                    dh_rank=self._int_or_none(row['DHpos'])
+                    dh_rank=self._int_or_none(row['DHpos']),
+                    ac_rank=self._int_or_none(row['ACpos'])
                 )
                 self.session.add(athlete_points)
                 

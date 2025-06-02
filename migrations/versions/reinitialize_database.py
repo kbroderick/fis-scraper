@@ -96,10 +96,12 @@ def upgrade() -> None:
         sa.Column('gs_points', sa.Float(), nullable=True),
         sa.Column('sg_points', sa.Float(), nullable=True),
         sa.Column('dh_points', sa.Float(), nullable=True),
+        sa.Column('ac_points', sa.Float(), nullable=True),
         sa.Column('sl_rank', sa.Integer(), nullable=True),
         sa.Column('gs_rank', sa.Integer(), nullable=True),
         sa.Column('sg_rank', sa.Integer(), nullable=True),
         sa.Column('dh_rank', sa.Integer(), nullable=True),
+        sa.Column('ac_rank', sa.Integer(), nullable=True),
         sa.ForeignKeyConstraint(['athlete_id'], ['athletes.id'], ),
         sa.ForeignKeyConstraint(['points_list_id'], ['points_lists.id'], ),
         sa.PrimaryKeyConstraint('id')

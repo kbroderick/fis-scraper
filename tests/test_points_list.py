@@ -232,10 +232,12 @@ def test_save_points_list(scraper):
     assert athlete_points.gs_points == 454.43
     assert athlete_points.sg_points is None
     assert athlete_points.dh_points is None
+    assert athlete_points.ac_points is None
     assert athlete_points.sl_rank == 6063
     assert athlete_points.gs_rank == 5988
     assert athlete_points.sg_rank is None
     assert athlete_points.dh_rank is None
+    assert athlete_points.ac_rank is None
     
     # Clean up
     scraper.session.query(AthletePoints).delete()
