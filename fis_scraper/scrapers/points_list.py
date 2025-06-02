@@ -183,31 +183,16 @@ class PointsListScraper:
             pass
         return None, None
     
-    def download_and_process_points_list(self, points_list_data: Dict[str, Union[str, date]],
-                                        start_date: Optional[datetime.date] = None,
-                                        end_date: Optional[datetime.date] = None) -> bool:
+    def download_and_process_points_list(self,
+                                         points_list_data: Dict[str, Union[str, date]]) -> bool:
         """Download and process a single points list.
         
         Args:
             points_list_data: Dictionary containing points list info
-            start_date: Valid open date from which to start scraping
-                points lists; defaults to 2001-10-01, which will capture
-                all consistent history on FIS site (before the first 
-                2001/02 list, data gap to 3rd list 97/98, which is 
-                oldest on site)
-            end_date: Date to which to scrape lists; default is today                    
             
         Returns:
             bool: True if processing was successful, False otherwise
         """
-        if start_date is None:
-            start_date = date(2001, 10, 1)
-        if end_date is None:
-            end_date = date.today()
-        if points_list_data['valid_from'] < start_date \
-            or points_list_data['valid_from'] > end_date:
-            return False
-
         try:
             response = requests.get(points_list_data['csv_url'])
             if response.status_code != 200:
@@ -384,19 +369,16 @@ class PointsListScraper:
         match = re.search(r'(\d{4}/\d{2})', name)
         return match.group(1) if match else None 
 
-    def get_updated_points_lists(self,
+    def _get_updated_points_lists(self,
                               found_points_lists: List[Dict[str, Union[str, date]]]
                              ) -> List[Dict[str, Union[str, date]]]:
-        """Get updated points lists not yet ingested to DB.
+        """Filter list of points lists to only those not ingested to DB.
         
         Args:
             found_points_lists: List of dictionaries of points list information, eg from FIS site:
-                - sectorcode: Sector code (e.g., "AL")
-                - seasoncode: Season code (e.g., "2023")
                 - listid: List ID (e.g., "83"); None if Base List for given season code
-                - name: Name of the points list
-                - valid_from: Start date of validity period
-                - valid_to: End date of validity period
+                other fields are not used here but will be elsewhere
+
         Returns:
             List[Dict[str, Union[str, date]]]: 
             List of dictionaries containing points list information that are not yet in the DB:
@@ -413,6 +395,27 @@ class PointsListScraper:
                 new_lists.append(points_list)
         return new_lists
 
+    def _filter_lists_by_date(self,
+                             points_lists: List[Dict[str, Union[str, date]]],
+                             start_date: Optional[date],
+                             end_date: Optional[date]) -> List[Dict[str, Union[str, date]]]:
+        """Filter points lists by date. All points lists that would be
+        valid for any date in the range are included.
+        
+        Args:
+            points_lists: List of dictionaries of points list information
+            start_date: Start date of validity period
+            end_date: End date of validity period
+        """
+        filtered_lists = []
+        for points_list in points_lists:
+            if start_date is not None and points_list['valid_to'] < start_date:
+                continue
+            if end_date is not None and points_list['valid_from'] > end_date:
+                continue
+            filtered_lists.append(points_list)
+        return filtered_lists
+
 def main():
     """Main entry point for the points list scraper."""
     try:
@@ -423,10 +426,15 @@ def main():
         logger.info("Fetching available points lists")
         points_lists = scraper.get_points_lists()
         logger.info(f"Found {len(points_lists)} points lists")
-        breakpoint()
+        if (start_date is not None or end_date is not None):
+            points_lists = scraper._filter_lists_by_date(points_lists, start_date, end_date)
+            logger.info(f"Found {len(points_lists)} points lists by date")
+        else:
+            points_lists = scraper._get_updated_points_lists(points_lists)
+            logger.info(f"Found {len(points_lists)} new points lists by listid")
         # Process each points list
         for i, points_list in enumerate(points_lists, 1):
-            logger.info(f"Processing points list {i}/{len(points_lists)}: {points_list['name']}")
+            logger.info(f"Processing points list: {points_list['name']}")
             success = scraper.download_and_process_points_list(points_list)
             if success:
                 logger.info(f"Successfully processed points list: {points_list['name']}")

@@ -15,6 +15,30 @@ from fis_scraper.database.models import PointsList, Athlete, AthletePoints, Gend
 def scraper():
     return PointsListScraper()
 
+LIST_DATA_411 = {
+        'sectorcode': 'AL',
+        'seasoncode': '2025',
+        'listid': '411',
+        'name': '20th FIS points list 2024/25',
+        'valid_from': date(2025, 3, 4),
+        'valid_to': date(2025, 4, 16)
+    }
+LIST_DATA_412 = {
+        'sectorcode': 'AL',
+        'seasoncode': '2025',
+        'listid': '412',
+        'name': '21st FIS points list 2024/25',
+        'valid_from': date(2025, 4, 17),
+        'valid_to': date(2025, 4, 30)
+    }
+LIST_DATA_413 = {
+        'sectorcode': 'AL',
+        'seasoncode': '2025',
+        'listid': '413',
+        'name': '22nd FIS points list 2024/25',
+        'valid_from': date(2025, 5, 1),
+        'valid_to': date(2025, 5, 31)
+    }
 def test_parse_dates(scraper):
     # Test valid date string
     date_str = "01-01-2023 - 31-12-2023"  # Format: DD-MM-YYYY - DD-MM-YYYY
@@ -220,40 +244,13 @@ def test_save_points_list(scraper):
     scraper.session.commit() 
 
 def test_get_updated_points_lists(scraper):
-    # Create test data
-    list_data411 = {
-        'sectorcode': 'AL',
-        'seasoncode': '2025',
-        'listid': '411',
-        'name': '20th FIS points list 2024/25',
-        'valid_from': date(2025, 3, 4),
-        'valid_to': date(2025, 4, 16)
-    }
+    all_lists = [LIST_DATA_411, LIST_DATA_412, LIST_DATA_413]
 
-    list_data412 = {
-        'sectorcode': 'AL',
-        'seasoncode': '2025',
-        'listid': '412',
-        'name': '21st FIS points list 2024/25',
-        'valid_from': date(2025, 4, 17),
-        'valid_to': date(2025, 4, 30)
-    }
-    list_data413 = {
-        'sectorcode': 'AL',
-        'seasoncode': '2025',
-        'listid': '413',
-        'name': '22nd FIS points list 2024/25',
-        'valid_from': date(2025, 5, 1),
-        'valid_to': date(2025, 5, 31)
-    }
-
-    all_lists = [list_data411, list_data412, list_data413]
-
-    scraper.session.add(scraper._points_list_from_dict(list_data411))
-    scraper.session.add(scraper._points_list_from_dict(list_data412))
+    scraper.session.add(scraper._points_list_from_dict(LIST_DATA_411))
+    scraper.session.add(scraper._points_list_from_dict(LIST_DATA_412))
     scraper.session.commit()
 
-    new_lists = scraper.get_updated_points_lists(all_lists)
+    new_lists = scraper._get_updated_points_lists(all_lists)
     assert len(new_lists) == 1
     assert new_lists[0]['listid'] == '413'
     assert new_lists[0]['name'] == '22nd FIS points list 2024/25'
@@ -261,6 +258,27 @@ def test_get_updated_points_lists(scraper):
     assert new_lists[0]['valid_to'] == date(2025, 5, 31)
     scraper.session.query(PointsList).delete()
     scraper.session.commit()
+
+def test_filter_lists_by_date(scraper):
+    all_lists = [LIST_DATA_411, LIST_DATA_412, LIST_DATA_413]
+    filtered_lists = scraper._filter_lists_by_date(all_lists, None, None)
+    assert len(filtered_lists) == 3
+
+    filtered_lists = scraper._filter_lists_by_date(all_lists, date(2025, 4, 1), date(2025, 4, 30))
+    assert len(filtered_lists) == 2
+    assert filtered_lists[0]['listid'] == '411'
+    assert filtered_lists[1]['listid'] == '412'
+
+    filtered_lists = scraper._filter_lists_by_date(all_lists, date(2025, 4, 30), None)
+    assert len(filtered_lists) == 2
+    assert filtered_lists[0]['listid'] == '412'
+    assert filtered_lists[1]['listid'] == '413'
+
+    filtered_lists = scraper._filter_lists_by_date(all_lists, None, date(2025, 4, 30))
+    assert len(filtered_lists) == 2
+    assert filtered_lists[0]['listid'] == '411'
+    assert filtered_lists[1]['listid'] == '412'
+
 
 def _sample_internal_base_row_soup():
     # Internal Base list 2026
