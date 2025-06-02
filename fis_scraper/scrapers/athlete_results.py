@@ -1,14 +1,32 @@
 import requests
-from bs4 import BeautifulSoup
+from bs4 import BeautifulSoup, Tag
 from datetime import datetime
+from typing import Dict, Any
+import logging
+
 from ..database.connection import get_session
 from ..database.models import Athlete, RaceResult, Discipline, Gender
 
 class AthleteResultsScraper:
-    BASE_URL = "https://www.fis-ski.com/DB/alpine-skiing/biographies.html"
+    BASE_URL: str = "https://www.fis-ski.com/DB/alpine-skiing/biographies.html"
+    DATA_URL: str = "https://data.fis-ski.com"
+    ATHLETE_BIO_URL: str = "https://www.fis-ski.com/DB/general/athlete-biography.html"
+    ATHLETE_RESULTS_URL: str = f"{DATA_URL}/fis_athletes/ajax/athletesfunctions/load_results.html"
     
     def __init__(self):
         self.session = get_session()
+
+    def _get_athlete_results_url(self, fis_db_id: int) -> str:
+        """
+        Get the URL for the athlete results page.
+        
+        Args:
+            fis_db_id: FIS DB ID of the athlete
+
+        Returns:
+            str: URL for the athlete results page
+        """
+        return f"{self.ATHLETE_RESULTS_URL}?sectorcode=AL&competitorid={fis_db_id}&limit=1000"
     
     def get_athlete_results(self, fis_id):
         """Scrape results for a specific athlete."""
@@ -70,8 +88,17 @@ class AthleteResultsScraper:
         
         return details
     
-    def _parse_result_row(self, cells, fis_id):
-        """Parse a single result row from the table."""
+    def _parse_result_row(self, html_tag: Tag) -> Dict[str, Any]:
+        """
+        Parse a single result row from the HTML 'table'.
+
+        Args:
+            html_tag: BeautifulSoup Tag object containing the result row
+
+        Returns:
+            Dict[str, Any]: Dictionary of result row data
+        """
+        cells = html_tag.find_all('div')
         try:
             date_str = cells[0].text.strip()
             race_date = datetime.strptime(date_str, '%d.%m.%Y').date()
@@ -85,43 +112,15 @@ class AthleteResultsScraper:
             rank = int(cells[4].text.strip())
             points = float(cells[5].text.strip()) if cells[5].text.strip() else None
             
-            # Get or create athlete
-            athlete = self.session.query(Athlete).filter_by(fis_id=fis_id).first()
-            if not athlete:
-                # Get athlete details from the page
-                details = self._parse_athlete_details(BeautifulSoup(requests.get(
-                    self.BASE_URL, 
-                    params={'mi': 'menu-athletes', 'fiscode': fis_id}
-                ).text, 'html.parser'))
-                
-                athlete = Athlete(
-                    fis_id=fis_id,
-                    name=details.get('name', ''),
-                    country=details.get('nation_code', ''),
-                    nation_code=details.get('nation_code', ''),
-                    gender=details.get('gender', Gender.M),
-                    birth_date=details.get('birth_date'),
-                    birth_year=details.get('birth_year'),
-                    ski_club=details.get('ski_club', ''),
-                    national_code=details.get('national_code', '')
-                )
-                self.session.add(athlete)
-                self.session.flush()
-            
-            # Create result entry
-            result = RaceResult(
-                athlete_id=athlete.id,
-                race_date=race_date,
-                discipline=discipline,
-                points=points,
-                rank=rank,
-                race_name=race_name,
-                location=location
-            )
-            
-            self.session.add(result)
-            self.session.commit()
-            
+            result = {
+                'athlete_id': athlete.id,
+                'race_date': race_date,
+                'discipline': discipline,
+                'points': points,
+                'rank': rank,
+                'race_name': race_name,
+                'location': location
+            }
             return result
             
         except (ValueError, IndexError) as e:
