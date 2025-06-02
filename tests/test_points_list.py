@@ -219,6 +219,49 @@ def test_save_points_list(scraper):
     scraper.session.query(PointsList).delete()
     scraper.session.commit() 
 
+def test_get_updated_points_lists(scraper):
+    # Create test data
+    list_data411 = {
+        'sectorcode': 'AL',
+        'seasoncode': '2025',
+        'listid': '411',
+        'name': '20th FIS points list 2024/25',
+        'valid_from': date(2025, 3, 4),
+        'valid_to': date(2025, 4, 16)
+    }
+
+    list_data412 = {
+        'sectorcode': 'AL',
+        'seasoncode': '2025',
+        'listid': '412',
+        'name': '21st FIS points list 2024/25',
+        'valid_from': date(2025, 4, 17),
+        'valid_to': date(2025, 4, 30)
+    }
+    list_data413 = {
+        'sectorcode': 'AL',
+        'seasoncode': '2025',
+        'listid': '413',
+        'name': '22nd FIS points list 2024/25',
+        'valid_from': date(2025, 5, 1),
+        'valid_to': date(2025, 5, 31)
+    }
+
+    all_lists = [list_data411, list_data412, list_data413]
+
+    scraper.session.add(scraper._points_list_from_dict(list_data411))
+    scraper.session.add(scraper._points_list_from_dict(list_data412))
+    scraper.session.commit()
+
+    new_lists = scraper.get_updated_points_lists(all_lists)
+    assert len(new_lists) == 1
+    assert new_lists[0]['listid'] == '413'
+    assert new_lists[0]['name'] == '22nd FIS points list 2024/25'
+    assert new_lists[0]['valid_from'] == date(2025, 5, 1)
+    assert new_lists[0]['valid_to'] == date(2025, 5, 31)
+    scraper.session.query(PointsList).delete()
+    scraper.session.commit()
+
 def _sample_internal_base_row_soup():
     # Internal Base list 2026
     raw_row = '<div class="container g-xs-24">\n<div class="g-xs-9 g-sm-9 g-md-7 g-lg-7 justify-left align-xs-top align-md-top">\n<a class="link link_theme_dark link_text_underline" href="https://www.fis-ski.com/DB/general/fis-points-details.html?sectorcode=AL&amp;seasoncode=2026" target="_self">\n<span class="link__text">Internal Base list 2026</span>\n</a>\n</div>\n<div class="g-xs-5 g-sm-5 g-md-6 g-lg-6 justify-left gray">\n<div class="clip-sm clip-xs">Not valid for races (calculated\n                                                                at 02-05-2025)\n                                                            </div>\n</div>\n<div class="g-md-1 g-lg-1 justify-left pale hidden-sm-down">\xa0\n                                                    </div>\n<div class="g-xs-10 g-sm-10 g-md-10 g-lg-10 justify-left">\n<div class="split-row split-row_bordered">\n<div class="split-row__item">\n<ul class="info__list flex-lg-wrap flex-md-wrap flex-sm-wrap flex-xs-wrap">\n<li class="info__item info__item_type_category">\n<span>\n<a class="link link_theme_dark link_text_underline" data-ga-download="FIS points list XLSX" href="javascript:void(0)" onclick="fct_export_fispointslist_xlsx(\'AL\',\'2026\',\'\')" rel="nofollow" target="_self" title="Export the full list in Excel">\n<span class="link__text">Excel (xlsx)</span>\n</a>\n</span>\n</li>\n<li class="info__item info__item_type_category">\n<span>\n<a class="link link_theme_dark link_text_underline" data-ga-download="FIS points list CSV" href="javascript:void(0)" onclick="fct_export_fispointslist_csv(\'AL\',\'2026\',\'\')" rel="nofollow" target="_self" title="Export the full list in CSV">\n<span class="link__text">Excel (csv)</span>\n</a>\n</span>\n</li>\n</ul>\n</div>\n</div>\n</div>\n</div>'

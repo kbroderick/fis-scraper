@@ -41,6 +41,7 @@ def upgrade() -> None:
     op.create_table('athletes',
         sa.Column('id', sa.Integer(), nullable=False),
         sa.Column('fis_id', sa.Integer(), nullable=False),
+        sa.Column('fis_db_id', sa.Integer(), nullable=True),
         sa.Column('last_name', sa.String(), nullable=False),
         sa.Column('first_name', sa.String(), nullable=False),
         sa.Column('nation_code', sa.CHAR(length=3), nullable=False),
@@ -56,10 +57,11 @@ def upgrade() -> None:
     # Create points_lists table
     op.create_table('points_lists',
         sa.Column('id', sa.Integer(), nullable=False),
-        sa.Column('publication_date', sa.Date(), nullable=False),
+        sa.Column('publication_date', sa.Date(), nullable=True),
         sa.Column('valid_from', sa.Date(), nullable=False),
         sa.Column('valid_to', sa.Date(), nullable=False),
         sa.Column('season', sa.String(), nullable=False),
+        sa.Column('listid', sa.Integer(), nullable=False),
         sa.PrimaryKeyConstraint('id')
     )
     

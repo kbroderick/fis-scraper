@@ -37,6 +37,7 @@ class Athlete(Base):
 
     id: Mapped[int] = Column(Integer, primary_key=True)
     fis_id: Mapped[int] = Column(Integer, unique=True, nullable=False)
+    fis_db_id: Mapped[Optional[int]] = Column(Integer)
     last_name: Mapped[str] = Column(String, nullable=False)
     first_name: Mapped[str] = Column(String, nullable=False)
     nation_code: Mapped[str] = Column(CHAR(3), nullable=False)  # 3-letter country code
@@ -92,6 +93,7 @@ class PointsList(Base):
         valid_from (date): Start date of validity period
         valid_to (date): End date of validity period
         season (str): Season identifier (e.g., "2023/24")
+        listid (int): FIS list ID (sequential, e.g. last 24/25 is 413)
         athlete_points (List[AthletePoints]): List of athlete points records
     """
     __tablename__ = 'points_lists'
@@ -101,6 +103,7 @@ class PointsList(Base):
     valid_from: Mapped[Date] = Column(Date, nullable=False)
     valid_to: Mapped[Date] = Column(Date, nullable=False)
     season: Mapped[str] = Column(String, nullable=False)
+    listid: Mapped[int] = Column(Integer, nullable=False)
     
     athlete_points: Mapped[List["AthletePoints"]] = relationship("AthletePoints", back_populates="points_list")
 

@@ -10,8 +10,7 @@ from bs4 import BeautifulSoup
 from bs4 import Tag
 import pandas as pd
 from pandas._libs.tslibs.parsing import DateParseError
-
-from parser import ParserError
+from pandas.errors import ParserError
 
 from ..database.connection import get_session
 from ..database.models import PointsList, Athlete, AthletePoints, Gender
@@ -227,6 +226,20 @@ class PointsListScraper:
             print(f"Error processing points list: {e}")
             return False
     
+    def _points_list_from_dict(self, points_list_data: Dict[str, Union[str, date]]) -> PointsList:
+        """Create a PointsList object from a dictionary.
+        
+        Args:
+            points_list_data: Dictionary containing points list information
+        """
+        return PointsList(
+            publication_date=datetime.now().date(), ## BUG. FIXME.
+            listid=points_list_data['listid'],
+            valid_from=points_list_data['valid_from'],
+            valid_to=points_list_data['valid_to'],
+            season=points_list_data['seasoncode']
+        )
+
     def _save_points_list(self, points_list_data: Dict[str, Union[str, date]],
                           df: pd.DataFrame) -> None:
         """Save points list data to database.
@@ -235,12 +248,7 @@ class PointsListScraper:
             points_list_data: Dictionary containing points list information
             df: DataFrame containing the points list data
         """
-        points_list = PointsList(
-            publication_date=datetime.now().date(),
-            valid_from=points_list_data['valid_from'],
-            valid_to=points_list_data['valid_to'],
-            season=points_list_data['seasoncode']
-        )
+        points_list = self._points_list_from_dict(points_list_data)
         self.session.add(points_list)
         self.session.flush()
         
@@ -375,6 +383,35 @@ class PointsListScraper:
         """
         match = re.search(r'(\d{4}/\d{2})', name)
         return match.group(1) if match else None 
+
+    def get_updated_points_lists(self,
+                              found_points_lists: List[Dict[str, Union[str, date]]]
+                             ) -> List[Dict[str, Union[str, date]]]:
+        """Get updated points lists not yet ingested to DB.
+        
+        Args:
+            found_points_lists: List of dictionaries of points list information, eg from FIS site:
+                - sectorcode: Sector code (e.g., "AL")
+                - seasoncode: Season code (e.g., "2023")
+                - listid: List ID (e.g., "83"); None if Base List for given season code
+                - name: Name of the points list
+                - valid_from: Start date of validity period
+                - valid_to: End date of validity period
+        Returns:
+            List[Dict[str, Union[str, date]]]: 
+            List of dictionaries containing points list information that are not yet in the DB:
+                - sectorcode: Sector code (e.g., "AL")
+                - seasoncode: Season code (e.g., "2023")
+                - listid: List ID (e.g., "83"); None if Base List for given season code
+                - name: Name of the points list
+                - valid_from: Start date of validity period
+                - valid_to: End date of validity period
+        """
+        new_lists = []
+        for points_list in found_points_lists:
+            if not self.session.query(PointsList).filter_by(listid=points_list['listid']).first():
+                new_lists.append(points_list)
+        return new_lists
 
 def main():
     """Main entry point for the points list scraper."""
