@@ -102,6 +102,7 @@ def upgrade() -> None:
         sa.Column('sg_rank', sa.Integer(), nullable=True),
         sa.Column('dh_rank', sa.Integer(), nullable=True),
         sa.Column('ac_rank', sa.Integer(), nullable=True),
+        sa.Column('calculated_date', sa.Date(), nullable=False),
         sa.ForeignKeyConstraint(['athlete_id'], ['athletes.id'], ),
         sa.ForeignKeyConstraint(['points_list_id'], ['points_lists.id'], ),
         sa.PrimaryKeyConstraint('id')

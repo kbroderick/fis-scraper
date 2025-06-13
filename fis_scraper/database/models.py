@@ -141,6 +141,7 @@ class AthletePoints(Base):
     sg_rank: Mapped[Optional[int]] = Column(Integer)  # World rank position in Super-G
     dh_rank: Mapped[Optional[int]] = Column(Integer)  # World rank position in Downhill
     ac_rank: Mapped[Optional[int]] = Column(Integer)  # World rank position in Alpine Combined
+    calculated_date: Mapped[Optional[Date]] = Column(Date)
     
     athlete: Mapped["Athlete"] = relationship("Athlete", back_populates="points")
     points_list: Mapped["PointsList"] = relationship("PointsList", back_populates="athlete_points") 

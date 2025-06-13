@@ -180,5 +180,4 @@ def test_parse_result_row_invalid(scraper):
     cells = soup.find('a')
     
     result = scraper._parse_result_row(cells)
-    pprint.pprint(result)
     assert result is None 

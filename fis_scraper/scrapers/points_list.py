@@ -279,7 +279,8 @@ class PointsListScraper:
                     gs_rank=self._int_or_none(row['GSpos']),
                     sg_rank=self._int_or_none(row['SGpos']),
                     dh_rank=self._int_or_none(row['DHpos']),
-                    ac_rank=self._int_or_none(row['ACpos'])
+                    ac_rank=self._int_or_none(row['ACpos']),
+                    calculated_date=pd.to_datetime(row['Calculationdate'],dayfirst=True).date()
                 )
                 self.session.add(athlete_points)
                 

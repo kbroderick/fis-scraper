@@ -238,6 +238,7 @@ def test_save_points_list(scraper):
     assert athlete_points.sg_rank is None
     assert athlete_points.dh_rank is None
     assert athlete_points.ac_rank is None
+    assert athlete_points.calculated_date == date(2025, 5, 1)
     
     # Clean up
     scraper.session.query(AthletePoints).delete()
