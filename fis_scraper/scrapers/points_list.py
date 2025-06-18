@@ -63,18 +63,22 @@ class PointsListScraper:
         filename = self._get_filename_for_points_list(list_data)
         return f"{self.DATA_FOLDER}/points_lists/{filename}.csv"
         
-    def get_points_lists(self, include_base_lists: bool = False) -> List[Dict[str, Union[str, date]]]:
+    def get_points_lists(self, include_base_lists: bool = False) -> \
+        List[Dict[str, Union[str, date]]]:
         """Scrape the FIS points lists page and return list of available
         points lists.
 
         Args:
-            include_base_lists: Whether to include base lists in the returned list
+            include_base_lists: Whether to include base lists in the
+            returned list
 
         Returns:
-            List[Dict[str, Union[str, date]]]: List of dictionaries containing points list information:
+            List[Dict[str, Union[str, date]]]: List of dictionaries
+            containing points list information:
                 - sectorcode: Sector code (e.g., "AL")
                 - seasoncode: Season code (e.g., "2023")
-                - listid: List ID (e.g., "83"); None if Base List for given season code
+                - listid: List ID (e.g., "83"); None if Base List for
+                    given season code
                 - name: Name of the points list
                 - valid_from: Start date of validity period
                 - valid_to: End date of validity period
