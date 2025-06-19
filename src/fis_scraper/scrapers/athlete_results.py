@@ -1,3 +1,4 @@
+from asyncio.log import logger
 import requests
 from bs4 import BeautifulSoup, Tag
 from datetime import datetime
@@ -46,8 +47,8 @@ class AthleteResultsScraper:
             result = self._parse_result_row(row)
             if result:
                 results.append(result)
-#            else:
-#                print(f"Error parsing row:\n {row}")
+            else:
+                logger.error(f"get_athlete_results: Error parsing row:\n {row}")
         
         return results
     
@@ -103,7 +104,7 @@ class AthleteResultsScraper:
             # Get the container div
             container = html_tag.find('div', {'class': 'container'})
             if not container:
-                print(f"Error parsing result row, no div.container found: {html_tag}")
+                logger.error(f"Error parsing result row, no div.container found: {html_tag}")
                 return None
                 
             # Find all divs with text content
@@ -117,7 +118,7 @@ class AthleteResultsScraper:
                 try:
                     race_date = datetime.strptime(date_str, '%d.%m.%Y').date()
                 except ValueError:
-                    print(f"Error parsing date in result row: {date_str}")
+                    logger.error(f"Error parsing date in result row: {date_str}")
                     return None
             
             # Parse location and discipline
@@ -126,7 +127,7 @@ class AthleteResultsScraper:
             if gray_div:
                 discipline_str = gray_div.text.strip()
             else:
-                print(f"Error parsing discipline in result row: {html_tag}")
+                logger.error(f"Error parsing discipline in result row: {html_tag}")
             discipline = self._parse_discipline(discipline_str) if discipline_str else None
             
             location = None

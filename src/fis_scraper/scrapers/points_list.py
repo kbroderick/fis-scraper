@@ -221,7 +221,7 @@ class PointsListScraper:
             return True
             
         except Exception as e:
-            print(f"Error processing points list: {e}")
+            logger.error(f"Error processing points list: {e}")
             return False
     
     def _points_list_from_dict(self, points_list_data: Dict[str, Union[str, date]]) -> PointsList:
