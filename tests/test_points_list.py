@@ -1,15 +1,18 @@
 import pytest
 import os
 import requests
+import builtins
 
 from datetime import date
 from bs4 import BeautifulSoup
 from urllib import response
 from unittest.mock import MagicMock
+import pandas as pd
+from sqlalchemy import select
 
-import fis_scraper
-from fis_scraper.scrapers.points_list import PointsListScraper
-from fis_scraper.database.models import PointsList, Athlete, AthletePoints, Gender
+import src.fis_scraper
+from src.fis_scraper.scrapers.points_list import PointsListScraper
+from src.fis_scraper.database.models import PointsList, Athlete, AthletePoints, Gender
 
 @pytest.fixture
 def scraper():
@@ -126,12 +129,11 @@ def test_get_points_lists(scraper, mocker):
     mock_response.text = mock_html
     mocker.patch('requests.get', return_value=mock_response)
  
-    # Call the method
     points_lists = scraper.get_points_lists(include_base_lists=True)
     
     # Verify the request was made to the correct URL
     requests.get.assert_called_once_with(scraper.BASE_URL)
-    
+   
     # Verify we got the expected number of points lists
     assert len(points_lists) == 349
     
@@ -156,7 +158,12 @@ def test_get_points_lists(scraper, mocker):
     points_lists = scraper.get_points_lists(include_base_lists=False)
     assert len(points_lists) == 331
 
-def test_download_and_process_points_list(scraper, mocker):
+def _points_list_path_exists(path):
+    if path.endswith('csv'):
+        return False
+    return True
+
+def test_download_and_process_points_list_not_present(scraper, mocker):
     points_list_data = {
         'csv_url': 'https://data.fis-ski.com/fis_athletes/ajax/fispointslistfunctions/export_fispointslist.html?export_csv=true&sectorcode=AL&seasoncode=2025&listid=413',
         'listid': '413',
@@ -173,19 +180,33 @@ def test_download_and_process_points_list(scraper, mocker):
     mock_response.status_code = 200
     mock_response.content = mock_file
     mocker.patch('requests.get', return_value=mock_response)
-    mocker.patch('fis_scraper.scrapers.points_list.PointsListScraper._save_points_list')
+    mocker.patch('src.fis_scraper.scrapers.points_list.PointsListScraper._save_points_list')
 
-    # Call the method
+    # NOTE: we are not mocking builtins.open, so file will be written to disk.
+    mocker.patch('os.path.exists', side_effect=_points_list_path_exists)
     scraper.download_and_process_points_list(points_list_data)
-
     requests.get.assert_called_once_with(points_list_data['csv_url'])
-    fis_scraper.scrapers.points_list.PointsListScraper._save_points_list.assert_called_once()
+    src.fis_scraper.scrapers.points_list.PointsListScraper._save_points_list.assert_called_once()
 
-    # cleanup
-    scraper.session.query(PointsList).delete()
-    scraper.session.query(Athlete).delete()
-    scraper.session.query(AthletePoints).delete()
-    scraper.session.commit()
+def test_download_and_process_points_list_present(scraper, mocker):
+    points_list_data = {
+        'csv_url': 'https://data.fis-ski.com/fis_athletes/ajax/fispointslistfunctions/export_fispointslist.html?export_csv=true&sectorcode=AL&seasoncode=2025&listid=413',
+        'listid': '413',
+        'name': '22nd FIS points list 2024/25',
+        'seasoncode': '2025',
+        'sectorcode': 'AL',
+        'valid_from': date(2025, 5, 1),
+        'valid_to': date(2025, 5, 31)
+    }
+    mocker.patch('os.path.exists', return_value=True)
+    mocker.patch('builtins.open')
+    mocker.patch('requests.get')
+    mocker.patch('pandas.read_csv')
+    mocker.patch('src.fis_scraper.scrapers.points_list.PointsListScraper._save_points_list')
+    scraper.download_and_process_points_list(points_list_data)
+    requests.get.assert_not_called() 
+    builtins.open.assert_not_called()
+    src.fis_scraper.scrapers.points_list.PointsListScraper._save_points_list.assert_called_once()
 
 def test_save_points_list(scraper):
     # Create test data
@@ -200,23 +221,20 @@ def test_save_points_list(scraper):
         'valid_to': date(2025, 5, 31)
     }
     
-    # Create test DataFrame
-    import pandas as pd
-    df = pd.read_csv(abbreviated_points_list_file)
-    
     # Save points list
-    scraper._save_points_list(points_list_data, df)
+    scraper._save_points_list(points_list_data, pd.read_csv(abbreviated_points_list_file))
     
     # Verify database entries
-    points_list = scraper.session.query(PointsList).first()
+    points_list = scraper.session.scalars(select(PointsList)).first()
     assert points_list is not None
     assert points_list.valid_from == date(2025, 5, 1)
     assert points_list.valid_to == date(2025, 5, 31)
     assert points_list.season == '2025'
     
-    athlete = scraper.session.query(Athlete).first()
+    athlete = scraper.session.scalars(select(Athlete)).first()
     assert athlete is not None
     assert athlete.fis_id == 820069
+    assert athlete.fis_db_id == 283026
     assert athlete.first_name == 'Umer'
     assert athlete.last_name == '.'
     assert athlete.nation_code == 'PAK'
@@ -226,7 +244,7 @@ def test_save_points_list(scraper):
     assert athlete.ski_club is None
     assert athlete.national_code is None
     
-    athlete_points = scraper.session.query(AthletePoints).first()
+    athlete_points = scraper.session.scalars(select(AthletePoints)).first()
     assert athlete_points is not None
     assert athlete_points.sl_points == 680.26
     assert athlete_points.gs_points == 454.43
@@ -259,6 +277,7 @@ def test_get_updated_points_lists(scraper):
     assert new_lists[0]['name'] == '22nd FIS points list 2024/25'
     assert new_lists[0]['valid_from'] == date(2025, 5, 1)
     assert new_lists[0]['valid_to'] == date(2025, 5, 31)
+
     scraper.session.query(PointsList).delete()
     scraper.session.commit()
 
@@ -282,6 +301,77 @@ def test_filter_lists_by_date(scraper):
     assert filtered_lists[0]['listid'] == '411'
     assert filtered_lists[1]['listid'] == '412'
 
+def test_points_list_from_dict(scraper):
+    points_list = scraper._points_list_from_dict(LIST_DATA_413)
+    assert points_list.listid == '413'
+    assert points_list.name == '22nd FIS points list 2024/25'
+    assert points_list.valid_from == date(2025, 5, 1)
+    assert points_list.valid_to == date(2025, 5, 31)
+    assert points_list.season == '2025'
+
+def test_athlete_from_row(scraper):
+    # 413,"22nd FIS points list 2024/25",1,1,AL,O,215778,492308,"ABAJO MASTRAL",Jaime,ESP,M,2000-11-03,"Formigal E.C.",ESP,"ABAJO MASTRAL Jaime",2000,01-05-2025,,,,199.77,4998,*,389.28,5899,*,,,,,,
+    row = pd.Series({
+        'Fiscode': 492308,
+        'Competitorid': 215778,
+        'Firstname': 'ABAJO MASTRAL',
+        'Lastname': 'Jaime',
+        'Nationcode': 'ESP',
+        'Gender': 'M',
+        'Birthdate': '2000-11-03',
+        'Skiclub': 'Formigal E.C.',
+        'Nationalcode': 'ESP',
+        'Birthyear': 2000,
+        'Calculateddate': '01-05-2025',
+        'Slpoints': 199.77,
+        'Gsrank': 4998,
+        'Slrank': 5899,
+        'Dhpoints': 389.28,
+        'Gsprints': 5899,
+        'Dhrank': 389.28,
+        'Acpoints': 389.28,
+        'Acrank': 389.28,
+    })
+    athlete = scraper._athlete_from_row(row)
+    assert athlete.fis_id == 492308
+    assert athlete.fis_db_id == 215778
+    assert athlete.first_name == 'ABAJO MASTRAL'
+    assert athlete.last_name == 'Jaime'
+    assert athlete.nation_code == 'ESP'
+    assert athlete.gender == Gender.M
+    assert athlete.birth_date == date(2000, 11, 3)
+    assert athlete.birth_year == 2000
+    assert athlete.ski_club == 'Formigal E.C.'
+    assert athlete.national_code == 'ESP'
+
+    # now without a birthdate or birthyear
+    row = pd.Series({
+        'Fiscode': 160025,
+        'Competitorid': 6445,
+        'Firstname': 'Noureddine',
+        'Lastname': 'BOUCHAAL',
+        'Nationcode': 'MAR',
+        'Gender': 'M',
+        'Birthdate': None,
+        'Skiclub': '',
+        'Nationalcode': '',
+        'Birthyear': None,
+        'Calculateddate': '01-05-2025',
+        'Slpoints': None,
+        'Gsrank': None,
+        'Slrank': None,
+        'Dhpoints': None,
+        'Gsprints': None,
+        'Dhrank': None,
+        'Acpoints': None,
+        'Acrank': None,
+    })
+    athlete = scraper._athlete_from_row(row)
+    assert athlete.fis_id == 160025
+    assert athlete.fis_db_id == 6445
+    assert athlete.first_name == 'Noureddine'
+    assert athlete.last_name == 'BOUCHAAL'
+    assert athlete.nation_code == 'MAR'
 
 def _sample_internal_base_row_soup():
     # Internal Base list 2026

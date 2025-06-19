@@ -4,6 +4,7 @@ from datetime import datetime
 from typing import Dict, Any
 import logging
 import re
+import pprint
 
 from ..database.connection import get_session
 from ..database.models import Athlete, RaceResult, Discipline, Gender
@@ -29,31 +30,24 @@ class AthleteResultsScraper:
         """
         return f"{self.ATHLETE_RESULTS_URL}?sectorcode=AL&competitorid={fis_db_id}&limit=1000"
     
-    def get_athlete_results(self, fis_id):
+    def get_athlete_results(self, fis_db_id):
         """Scrape results for a specific athlete."""
-        params = {'mi': 'menu-athletes', 'fiscode': fis_id}
-        response = requests.get(self.BASE_URL, params=params)
+        params = {'sectorcode': 'AL', 'competitorid': fis_db_id, 'limit': 1000}
+        response = requests.get(self.ATHLETE_RESULTS_URL, params=params)
         soup = BeautifulSoup(response.text, 'html.parser')
-        
-        # Find athlete details
-        athlete_details = self._parse_athlete_details(soup)
-        
+       
         # Find results table
-        results_table = soup.find('table', {'class': 'table'})
+        results_table = soup.find_all('a', {'class': 'table-row'})
         if not results_table:
             return []
         
         results = []
-        for row in results_table.find_all('tr')[1:]:  # Skip header row
-            cells = row.find_all('td')
-            if len(cells) >= 7:
-                try:
-                    result = self._parse_result_row(cells, fis_id)
-                    if result:
-                        results.append(result)
-                except Exception as e:
-                    print(f"Error parsing row: {e}")
-                    continue
+        for row in results_table:
+            result = self._parse_result_row(row)
+            if result:
+                results.append(result)
+#            else:
+#                print(f"Error parsing row:\n {row}")
         
         return results
     
@@ -109,6 +103,7 @@ class AthleteResultsScraper:
             # Get the container div
             container = html_tag.find('div', {'class': 'container'})
             if not container:
+                print(f"Error parsing result row, no div.container found: {html_tag}")
                 return None
                 
             # Find all divs with text content
@@ -122,14 +117,16 @@ class AthleteResultsScraper:
                 try:
                     race_date = datetime.strptime(date_str, '%d.%m.%Y').date()
                 except ValueError:
-                    print(f"Error parsing date: {date_str}")
+                    print(f"Error parsing date in result row: {date_str}")
                     return None
             
-            # Parse location and discipline robustly
+            # Parse location and discipline
             discipline_str = None
             gray_div = container.find('div', {'class': 'gray'})
             if gray_div:
                 discipline_str = gray_div.text.strip()
+            else:
+                print(f"Error parsing discipline in result row: {html_tag}")
             discipline = self._parse_discipline(discipline_str) if discipline_str else None
             
             location = None
@@ -140,10 +137,12 @@ class AthleteResultsScraper:
                 location = cells[1].text.strip()
             
             # Parse nation
-            nation_div = container.find('div', {'class': 'country'})
-            nation = nation_div.find('span', {'class': 'country__name-short'}).text.strip() if nation_div else None
-            
-            # Parse race category: look for the first cell with text in ['FIS', 'NAC', 'Nor-Am Cup', etc.]
+            nation = None
+            nation_span = container.find('span', {'class': 'country__name-short'})
+            if nation_span:
+                nation = nation_span.text.strip()
+                     
+            # Parse race category
             race_category = None
             race_category_div = container.find('div',
                                                {'class': 'g-sm-3 g-md-5 g-lg-5 justify-left hidden-xs hidden-md-up'})
@@ -151,21 +150,19 @@ class AthleteResultsScraper:
                 race_category = race_category_div.text.strip()
             
             # Parse results section (last cell with justify-right)
-            results_div = None
-            for div in cells[::-1]:
-                if 'justify-right' in div.get('class', []):
-                    results_div = div
-                    break
+            results_div = container.find('div', {'class': 'justify-right'}, recursive=False)
+            rank = None
+            points = None
+            cup_points = None
+
             if results_div:
                 result_divs = results_div.find_all('div', recursive=False)
-                result_texts = [d.text.strip() for d in result_divs if d.text.strip() != '']
-                rank = result_texts[0] if len(result_texts) > 0 else None
-                points = float(result_texts[1]) if len(result_texts) > 1 and self._is_float(result_texts[1]) else None
-                cup_points = int(result_texts[2]) if len(result_texts) > 2 and result_texts[2].isdigit() else None
-            else:
-                rank = None
-                points = None
-                cup_points = None
+                if len(result_divs) > 0:
+                    rank = result_divs[0].text.strip()
+                    if self._is_float(result_divs[1].text.strip()):
+                        points = float(result_divs[1].text.strip())
+                    if result_divs[2].text.strip().isdigit():
+                        cup_points = int(result_divs[2].text.strip())
             
             # Handle DNF/DSQ/DNS and result field
             result = None
@@ -220,9 +217,33 @@ class AthleteResultsScraper:
             'giant slalom': Discipline.GS,
             'sg': Discipline.SG,
             'super-g': Discipline.SG,
+            'super g': Discipline.SG,
             'dh': Discipline.DH,
             'downhill': Discipline.DH,
             'ac': Discipline.AC,
             'alpine combined': Discipline.AC,
         }
-        return discipline_map.get(discipline_str) 
+        return discipline_map.get(discipline_str)
+    
+    def _parse_fis_db_id_from_search(self, html: str, fis_id: int) -> int:
+        """
+        Parse the FIS DB ID from the search results page.
+        
+        Args:
+            html: HTML string of the search results page
+            fis_id: FIS ID of the athlete
+
+        Returns:
+            int: FIS DB ID of the athlete
+        """
+        soup = BeautifulSoup(html, 'html.parser')
+
+        search_results = soup.find('div', {'id': 'athletes-search'})
+        if not search_results:
+            return None
+        
+        athlete_results = search_results.find_all('a', {'class': 'table-row'})
+        for athlete_result in athlete_results:
+            if str(fis_id) in athlete_result.text:
+                return int(athlete_result.get('href').split('competitorid=')[1].split('&')[0])
+        return None

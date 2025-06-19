@@ -57,7 +57,7 @@ def upgrade() -> None:
     # Create points_lists table
     op.create_table('points_lists',
         sa.Column('id', sa.Integer(), nullable=False),
-        sa.Column('publication_date', sa.Date(), nullable=True),
+        sa.Column('name', sa.String(), nullable=False),
         sa.Column('valid_from', sa.Date(), nullable=False),
         sa.Column('valid_to', sa.Date(), nullable=False),
         sa.Column('season', sa.String(), nullable=False),
@@ -70,7 +70,7 @@ def upgrade() -> None:
         sa.Column('id', sa.Integer(), nullable=False),
         sa.Column('athlete_id', sa.Integer(), nullable=False),
         sa.Column('race_date', sa.Date(), nullable=False),
-        sa.Column('discipline', postgresql.ENUM('SL', 'GS', 'SG', 'DH', name='discipline'), nullable=False),
+        sa.Column('discipline', postgresql.ENUM('SL', 'GS', 'SG', 'DH', 'AC', name='discipline'), nullable=False),
         sa.Column('points', sa.Float(), nullable=True),
         sa.Column('rank', sa.Integer(), nullable=True),
         sa.Column('race_name', sa.String(), nullable=True),
@@ -83,6 +83,7 @@ def upgrade() -> None:
         sa.Column('total_starters', sa.Integer(), nullable=True),
         sa.Column('total_finishers', sa.Integer(), nullable=True),
         sa.Column('race_codex', sa.String(), nullable=True),
+        sa.Column('result', sa.String(), nullable=True),
         sa.ForeignKeyConstraint(['athlete_id'], ['athletes.id'], ),
         sa.PrimaryKeyConstraint('id')
     )

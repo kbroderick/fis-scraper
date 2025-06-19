@@ -23,6 +23,7 @@ class Athlete(Base):
     Attributes:
         id (int): Primary key
         fis_id (int): FIS (International Ski Federation) ID
+        fis_db_id (Optional[int]): FIS DB ID (e.g. 123456)
         name (str): Athlete's full name
         country (str): Athlete's country of origin
         nation_code (str): 3-letter country code
@@ -75,13 +76,14 @@ class RaceResult(Base):
     rank: Mapped[Optional[int]] = Column(Integer)
     race_name: Mapped[Optional[str]] = Column(String)
     location: Mapped[Optional[str]] = Column(String)
-    win_time: Mapped[Optional[float]] = Column(Float)  # Winner's time in seconds
-    racer_time: Mapped[Optional[float]] = Column(Float)  # Racer's time in seconds
+    win_time: Mapped[Optional[float]] = Column(Float, nullable=True)  # Winner's time in seconds
+    racer_time: Mapped[Optional[float]] = Column(Float, nullable=True)  # Racer's time in seconds
     penalty: Mapped[Optional[float]] = Column(Float)  # Calculated penalty value
     race_points: Mapped[Optional[float]] = Column(Float)  # Race points
     race_category: Mapped[Optional[str]] = Column(String)  # FIS race category
-    total_starters: Mapped[Optional[int]] = Column(Integer)  # Total starters
-    total_finishers: Mapped[Optional[int]] = Column(Integer)  # Total finishers
+    total_starters: Mapped[Optional[int]] = Column(Integer, nullable=True)  # Total starters
+    total_finishers: Mapped[Optional[int]] = Column(Integer, nullable=True)  # Total finishers
+    result: Mapped[Optional[str]] = Column(String, nullable=True)  # Letter Result (DNF1, DNS, etc.)
     
     athlete: Mapped["Athlete"] = relationship("Athlete", back_populates="results")
 
@@ -90,22 +92,21 @@ class PointsList(Base):
     
     Attributes:
         id (int): Primary key
-        publication_date (date): Date when points list was published
         valid_from (date): Start date of validity period
         valid_to (date): End date of validity period
         season (str): Season identifier (e.g., "2023/24")
         listid (int): FIS list ID (sequential, e.g. last 24/25 is 413)
         athlete_points (List[AthletePoints]): List of athlete points records
+        name (str): Name of the points list
     """
     __tablename__ = 'points_lists'
 
     id: Mapped[int] = Column(Integer, primary_key=True)
-    publication_date: Mapped[Date] = Column(Date, nullable=False)
     valid_from: Mapped[Date] = Column(Date, nullable=False)
     valid_to: Mapped[Date] = Column(Date, nullable=False)
     season: Mapped[str] = Column(String, nullable=False)
     listid: Mapped[int] = Column(Integer, nullable=False)
-    
+    name: Mapped[str] = Column(String, nullable=False)
     athlete_points: Mapped[List["AthletePoints"]] = relationship("AthletePoints", back_populates="points_list")
 
 class AthletePoints(Base):

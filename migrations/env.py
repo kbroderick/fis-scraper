@@ -5,8 +5,8 @@ from sqlalchemy import pool
 
 from alembic import context
 
-from fis_scraper.database.models import Base
-from fis_scraper.config import DATABASE_URL
+from src.fis_scraper.database.models import Base
+from src.fis_scraper.config import DATABASE_URL
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.

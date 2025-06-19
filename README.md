@@ -44,13 +44,14 @@ This Python application scrapes and analyzes FIS (International Ski Federation) 
    ```
 
    TODO:
-      ability to ingest only new lists
       add ability to ingest race results via scraping
       allow for CSV input of roster for eval
-      allow for web scraping to generate roster
       create per-athlete analysis (points, rank, and results over time)
       create per-roster analysis (points, rank and result over time; particular attention to
          delta in rank between selection and graduation)
+      allow for web scraping to generate roster
+      web interface?
+      containerized?
 
 3. Analyze athlete performance: (this doesn't work yet)
    ```bash
@@ -60,11 +61,12 @@ This Python application scrapes and analyzes FIS (International Ski Federation) 
 ## Project Structure
 
 ```
-py-scrape-ai/
-├── fis_scraper/
-│       ├── database/     # Database models and connection
-│       ├── scrapers/     # Web scraping components
-│       └── analysis/     # Data analysis tools
+fis-scraper/
+├── src/
+|     |--fis_scraper/
+│           ├── database/     # Database models and connection
+│           ├── scrapers/     # Web scraping components
+│           └── analysis/     # Data analysis tools
 └── tests/               # Test suite
 |-- data/
 |     |----- points_lists # saved points lists

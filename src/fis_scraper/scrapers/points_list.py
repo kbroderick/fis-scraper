@@ -1,3 +1,5 @@
+import argparse
+import os
 from pprint import pprint
 import requests
 import re
@@ -198,16 +200,23 @@ class PointsListScraper:
             bool: True if processing was successful, False otherwise
         """
         try:
-            response = requests.get(points_list_data['csv_url'])
-            if response.status_code != 200:
-                return False
-            
+            if not os.path.exists(f'{self.DATA_FOLDER}/points_lists'):
+                os.makedirs(f'{self.DATA_FOLDER}/points_lists')
+
             points_list_file = f'{self._get_filelocation_for_points_list(points_list_data)}'
-            with open(points_list_file, 'wb') as f:
-                f.write(response.content)
+
+            if os.path.exists(points_list_file):
+                logger.info(f"Points list already exists: {points_list_file}")                
+            else:
+                logger.info(f"Downloading points list: {points_list_data['name']}")
+                response = requests.get(points_list_data['csv_url'])
+                if response.status_code != 200:
+                    return False
+                
+                with open(points_list_file, 'wb') as f:
+                    f.write(response.content)
             
-            df = pd.read_csv(points_list_file)
-            self._save_points_list(points_list_data, df)
+            self._save_points_list(points_list_data, pd.read_csv(points_list_file))
             
             return True
             
@@ -222,19 +231,56 @@ class PointsListScraper:
             points_list_data: Dictionary containing points list information
         """
         return PointsList(
-            publication_date=datetime.now().date(), ## BUG. FIXME.
             listid=points_list_data['listid'],
             valid_from=points_list_data['valid_from'],
             valid_to=points_list_data['valid_to'],
-            season=points_list_data['seasoncode']
+            season=points_list_data['seasoncode'],
+            name=points_list_data['name']
         )
+
+    def _athlete_from_row(self, row: pd.Series) -> Athlete:
+        """
+        Create an Athlete object from a row of points list data.
+        
+        Args:
+            row: Pandas Series containing points list data
+        
+        Returns:
+            Athlete: Athlete object
+        """
+        birth_year = None
+        birth_date = None
+        if 'Birthdate' in row and pd.notna(row['Birthdate']):
+            try:
+                birth_date = pd.to_datetime(row['Birthdate']).date()
+                birth_year = birth_date.year
+            except (DateParseError, OverflowError, ParserError, ValueError):
+                birth_year = self._int_or_none(row['Birthyear'])
+                pass
+        else:
+            birth_year = self._int_or_none(row['Birthyear'])
+        
+        athlete = Athlete(
+            fis_id=row['Fiscode'],
+            fis_db_id=row['Competitorid'],
+            last_name=row['Lastname'],
+            first_name=row['Firstname'],
+            nation_code=row['Nationcode'],
+            gender=Gender.M if row.get('Gender', 'M') == 'M' else Gender.F,
+            birth_date=birth_date,
+            birth_year=birth_year,
+            ski_club=self._str_or_none(row['Skiclub']),
+            national_code=self._str_or_none(row['Nationalcode'])
+        )
+        return athlete
 
     def _save_points_list(self, points_list_data: Dict[str, Union[str, date]],
                           df: pd.DataFrame) -> None:
-        """Save points list data to database.
+        """
+        Save points list data to database.
         
         Args:
-            points_list_data: Dictionary containing points list information
+            points_list_data: Dictionary containing points list info
             df: DataFrame containing the points list data
         """
         points_list = self._points_list_from_dict(points_list_data)
@@ -245,29 +291,7 @@ class PointsListScraper:
             try:
                 athlete = self.session.query(Athlete).filter_by(fis_id=row['Fiscode']).first()
                 if not athlete:
-                    birth_year = None
-                    birth_date = None
-                    if 'Birthdate' in row and pd.notna(row['Birthdate']):
-                        try:
-                            birth_date = pd.to_datetime(row['Birthdate']).date()
-                            birth_year = birth_date.year
-                        except (DateParseError, OverflowError, ParserError, ValueError):
-                            birth_year = row['Birthyear']
-                            pass
-                    else:
-                        birth_year = row['Birthyear']
-                    
-                    athlete = Athlete(
-                        fis_id=row['Fiscode'],
-                        last_name=row['Lastname'],
-                        first_name=row['Firstname'],
-                        nation_code=row['Nationcode'],
-                        gender=Gender.M if row.get('Gender', 'M') == 'M' else Gender.F,
-                        birth_date=birth_date,
-                        birth_year=birth_year,
-                        ski_club=self._str_or_none(row['Skiclub']),
-                        national_code=self._str_or_none(row['Nationalcode'])
-                    )
+                    athlete = self._athlete_from_row(row)
                     self.session.add(athlete)
                     self.session.flush()
                 
@@ -423,8 +447,24 @@ class PointsListScraper:
             filtered_lists.append(points_list)
         return filtered_lists
 
-def main():
-    """Main entry point for the points list scraper."""
+def _get_argument_parser() -> argparse.ArgumentParser:
+    """Get the argument parser for the points list scraper."""
+    parser = argparse.ArgumentParser(description="FIS points list scraper")
+    parser.add_argument("--start-date", type=date.fromisoformat, help="Start date of validity period")
+    parser.add_argument("--end-date", type=date.fromisoformat, help="End date of validity period")
+    parser.add_argument("--only-list", type=int, help="Ingest a single list by id")
+    return parser
+
+def main(start_date: Optional[date] = None,
+         end_date: Optional[date] = None, only_list: Optional[int] = None):
+    """
+    Main entry point for the points list scraper.
+
+    Args:
+        start_date: Start date of validity period
+        end_date: End date of validity period
+        only_list: Ingest a single list by id
+    """
     try:
         logger.info("Starting FIS points list scraper")
         scraper = PointsListScraper()
@@ -433,9 +473,13 @@ def main():
         logger.info("Fetching available points lists")
         points_lists = scraper.get_points_lists()
         logger.info(f"Found {len(points_lists)} points lists")
+
         if (start_date is not None or end_date is not None):
             points_lists = scraper._filter_lists_by_date(points_lists, start_date, end_date)
             logger.info(f"Found {len(points_lists)} points lists by date")
+        elif only_list is not None:
+            points_lists = [points_list for points_list in points_lists if points_list['listid'] == str(only_list)]
+            logger.info(f"Found {len(points_lists)} points lists by listid")
         else:
             points_lists = scraper._get_updated_points_lists(points_lists)
             logger.info(f"Found {len(points_lists)} new points lists by listid")
@@ -447,6 +491,7 @@ def main():
                 logger.info(f"Successfully processed points list: {points_list['name']}")
             else:
                 logger.error(f"Failed to process points list: {points_list['name']}")
+                breakpoint
         
         logger.info("Points list scraping completed")
         
