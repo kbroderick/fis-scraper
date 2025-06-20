@@ -1,4 +1,8 @@
 import pytest
+from sqlalchemy import create_engine
+import logging
+
+logger = logging.getLogger(__name__)
 
 from src.fis_scraper.database.models import PointsList, Athlete, AthletePoints
 

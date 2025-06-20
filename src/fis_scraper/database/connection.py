@@ -2,11 +2,16 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, declarative_base
 from ..config import DATABASE_URL
 
+import os
+
 Base = declarative_base()
 
 def get_database_url():
     """Get database URL from config."""
-    return DATABASE_URL
+    if os.getenv('TEST_ENV'):
+        return DATABASE_URL.replace('fis_data', 'fis_data_test')
+    else:
+        return DATABASE_URL
 
 def init_db():
     """Initialize database connection."""

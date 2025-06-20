@@ -85,7 +85,7 @@ fis-scraper/
 
 Run the test suite:
 ```bash
-pytest tests/
+createdb fis_data_test ; TEST_ENV=true alembic upgrade head ; pytest tests/
 ```
 
 ## License
