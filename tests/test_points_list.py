@@ -324,9 +324,7 @@ def test_save_points_list(scraper):
     assert points_list.valid_to == date(2025, 5, 31)
     assert points_list.season == '2025'
     
-    athlete = scraper.session.scalars(select(Athlete)).first()
-    assert athlete is not None
-    assert athlete.fis_id == 820069
+    athlete = scraper.session.scalars(select(Athlete).where(Athlete.fis_id == 820069)).first()
     assert athlete.fis_db_id == 283026
     assert athlete.first_name == 'Umer'
     assert athlete.last_name == '.'
@@ -337,8 +335,7 @@ def test_save_points_list(scraper):
     assert athlete.ski_club is None
     assert athlete.national_code is None
     
-    athlete_points = scraper.session.scalars(select(AthletePoints)).first()
-    assert athlete_points is not None
+    athlete_points = scraper.session.scalars(select(AthletePoints).where(AthletePoints.athlete_id == athlete.id)).first()
     assert athlete_points.sl_points == 680.26
     assert athlete_points.gs_points == 454.43
     assert athlete_points.sg_points is None
@@ -402,7 +399,7 @@ def test_points_list_from_dict(scraper):
     assert points_list.valid_to == date(2025, 5, 31)
     assert points_list.season == '2025'
 
-def test_athlete_from_row(scraper):
+def test_athlete_from_row_normal(scraper):
     athlete = scraper._athlete_from_row(ABAJO_ROW)
 
     assert athlete.fis_id == 492308
@@ -416,6 +413,7 @@ def test_athlete_from_row(scraper):
     assert athlete.ski_club == 'Formigal E.C.'
     assert athlete.national_code == 'ESP'
 
+def test_athlete_from_row_no_birthyear(scraper):
     # now without a birthdate or birthyear
     athlete = scraper._athlete_from_row(BOUCHAAL_ROW)
     assert athlete.fis_id == 160025
@@ -423,7 +421,10 @@ def test_athlete_from_row(scraper):
     assert athlete.first_name == 'Noureddine'
     assert athlete.last_name == 'BOUCHAAL'
     assert athlete.nation_code == 'MAR'
+    assert athlete.birth_date is None
+    assert athlete.birth_year is None
 
+def test_athlete_from_row_no_acpoints(scraper):
     # now with no ACpoints or ACrank
     athlete = scraper._athlete_from_row(SEBASTIAN_ROW)
     assert athlete.fis_id == 501381
@@ -437,7 +438,30 @@ def test_athlete_from_row(scraper):
     assert athlete.ski_club == 'Edsåsdalens SLK'
     assert athlete.national_code == None
 
-def test_athlete_points_from_row(scraper):
+def test_athlete_points_from_row_normal(scraper):
+    athlete = scraper._athlete_from_row(ABAJO_ROW)
+    points_list = scraper._points_list_from_dict(LIST_DATA_413)
+    athlete_points = scraper._athlete_points_from_row(ABAJO_ROW, athlete, points_list)
+    assert athlete_points.sl_points == 199.77
+    assert athlete_points.gs_points is 389.28
+    assert athlete_points.sg_points is None
+    assert athlete_points.dh_points is None
+    assert athlete_points.ac_points is None
+    assert athlete_points.sl_rank == 4989
+
+def test_athlete_points_from_row_no_birthyear(scraper):
+    athlete = scraper._athlete_from_row(BOUCHAAL_ROW)
+    points_list = scraper._points_list_from_dict(LIST_DATA_413)
+    athlete_points = scraper._athlete_points_from_row(BOUCHAAL_ROW, athlete, points_list)
+    assert athlete_points.sl_points is None
+    assert athlete_points.gs_points is None
+    assert athlete_points.sg_points is None
+    assert athlete_points.dh_points is None
+    assert athlete_points.ac_points is None
+    assert athlete_points.sl_rank is None
+    assert athlete_points.gs_rank is None
+
+def test_athlete_points_from_row_no_acpoints(scraper):
     athlete = scraper._athlete_from_row(SEBASTIAN_ROW)
     points_list = scraper._points_list_from_dict(LIST_DATA_413)
     athlete_points = scraper._athlete_points_from_row(SEBASTIAN_ROW, athlete, points_list)
@@ -450,23 +474,6 @@ def test_athlete_points_from_row(scraper):
     assert athlete_points.gs_rank == 4010
     assert athlete_points.sg_rank == 2991
     assert athlete_points.dh_rank is None
-
-    athlete_points = scraper._athlete_points_from_row(ABAJO_ROW, athlete, points_list)
-    assert athlete_points.sl_points == 199.77
-    assert athlete_points.gs_points is 389.28
-    assert athlete_points.sg_points is None
-    assert athlete_points.dh_points is None
-    assert athlete_points.ac_points is None
-    assert athlete_points.sl_rank == 4989
-
-    athlete_points = scraper._athlete_points_from_row(BOUCHAAL_ROW, athlete, points_list)
-    assert athlete_points.sl_points is None
-    assert athlete_points.gs_points is None
-    assert athlete_points.sg_points is None
-    assert athlete_points.dh_points is None
-    assert athlete_points.ac_points is None
-    assert athlete_points.sl_rank is None
-    assert athlete_points.gs_rank is None
 
 def _sample_internal_base_row_soup():
     # Internal Base list 2026

@@ -8,7 +8,7 @@ Base = declarative_base()
 
 def get_database_url():
     """Get database URL from config."""
-    if os.getenv('TEST_ENV'):
+    if os.getenv('PYTEST_CURRENT_TEST') is not None:
         return DATABASE_URL.replace('fis_data', 'fis_data_test')
     else:
         return DATABASE_URL
@@ -21,4 +21,4 @@ def get_session():
     """Create a new database session."""
     engine = init_db()
     Session = sessionmaker(bind=engine)
-    return Session() 
+    return Session()

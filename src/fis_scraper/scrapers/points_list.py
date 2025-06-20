@@ -251,8 +251,9 @@ class PointsListScraper:
         birth_year = None
         birth_date = None
         try:
-            birth_date = pd.to_datetime(row.Birthdate).date()
-            birth_year = birth_date.year
+            if not pd.isna(row.Birthdate):
+                birth_date = pd.to_datetime(row.Birthdate).date()
+                birth_year = birth_date.year
         except (DateParseError, OverflowError, ParserError, ValueError):
             birth_year = self._int_or_none(row.Birthyear)
 
@@ -269,7 +270,7 @@ class PointsListScraper:
             national_code=self._str_or_none(row.Nationalcode)
         )
         return athlete
-    
+
     def _athlete_points_from_row(self, row: pd.Series, athlete: Athlete,
                                  points_list: PointsList) -> AthletePoints:
         """
@@ -279,7 +280,7 @@ class PointsListScraper:
             row: Pandas Series containing points list data
             athlete: Athlete object
             points_list: PointsList object
-        
+
         Returns:
             AthletePoints: AthletePoints object
         """
