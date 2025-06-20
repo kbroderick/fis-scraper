@@ -2,6 +2,9 @@ import pytest
 
 from src.fis_scraper.database.models import PointsList, Athlete, AthletePoints
 
+def pytest_configure(config):
+    config.option.capture = "tee-sys"
+
 @pytest.fixture(scope='function', autouse=False)
 def check_db_status(request, scraper):
     RED = '\033[91m'

@@ -250,29 +250,62 @@ class PointsListScraper:
         """
         birth_year = None
         birth_date = None
-        if 'Birthdate' in row and pd.notna(row['Birthdate']):
-            try:
-                birth_date = pd.to_datetime(row['Birthdate']).date()
-                birth_year = birth_date.year
-            except (DateParseError, OverflowError, ParserError, ValueError):
-                birth_year = self._int_or_none(row['Birthyear'])
-                pass
-        else:
-            birth_year = self._int_or_none(row['Birthyear'])
-        
+        try:
+            birth_date = pd.to_datetime(row.Birthdate).date()
+            birth_year = birth_date.year
+        except (DateParseError, OverflowError, ParserError, ValueError):
+            birth_year = self._int_or_none(row.Birthyear)
+
         athlete = Athlete(
-            fis_id=row['Fiscode'],
-            fis_db_id=row['Competitorid'],
-            last_name=row['Lastname'],
-            first_name=row['Firstname'],
-            nation_code=row['Nationcode'],
-            gender=Gender.M if row.get('Gender', 'M') == 'M' else Gender.F,
+            fis_id=row.Fiscode,
+            fis_db_id=row.Competitorid,
+            last_name=row.Lastname,
+            first_name=row.Firstname,
+            nation_code=row.Nationcode,
+            gender=Gender.M if row.Gender == 'M' else Gender.F,
             birth_date=birth_date,
             birth_year=birth_year,
-            ski_club=self._str_or_none(row['Skiclub']),
-            national_code=self._str_or_none(row['Nationalcode'])
+            ski_club=self._str_or_none(row.Skiclub),
+            national_code=self._str_or_none(row.Nationalcode)
         )
         return athlete
+    
+    def _athlete_points_from_row(self, row: pd.Series, athlete: Athlete,
+                                 points_list: PointsList) -> AthletePoints:
+        """
+        Create an AthletePoints object from a row of points list data.
+
+        Args:
+            row: Pandas Series containing points list data
+            athlete: Athlete object
+            points_list: PointsList object
+        
+        Returns:
+            AthletePoints: AthletePoints object
+        """
+        # NB: ACpoints and ACpos only present in season 2007 and later
+        if 'ACpoints' in row:
+            ac_points = self._float_or_none(row.ACpoints)
+            ac_rank = self._int_or_none(row.ACpos)
+        else:
+            ac_points = None
+            ac_rank = None
+
+        return AthletePoints(
+                    athlete_id=athlete.id,
+                    points_list_id=points_list.id,
+                    sl_points=self._float_or_none(row.SLpoints),
+                    gs_points=self._float_or_none(row.GSpoints),
+                    sg_points=self._float_or_none(row.SGpoints),
+                    dh_points=self._float_or_none(row.DHpoints),
+                    ac_points=ac_points,
+                    sl_rank=self._int_or_none(row.SLpos),
+                    gs_rank=self._int_or_none(row.GSpos),
+                    sg_rank=self._int_or_none(row.SGpos),
+                    dh_rank=self._int_or_none(row.DHpos),
+                    ac_rank=ac_rank,
+                    calculated_date=pd.to_datetime(row.Calculationdate,dayfirst=True).date()
+                )
 
     def _save_points_list(self, points_list_data: Dict[str, Union[str, date]],
                           df: pd.DataFrame) -> None:
@@ -287,29 +320,15 @@ class PointsListScraper:
         self.session.add(points_list)
         self.session.flush()
         
-        for _, row in df.iterrows():
+        for row in df.itertuples(index=False):
             try:
-                athlete = self.session.query(Athlete).filter_by(fis_id=row['Fiscode']).first()
+                athlete = self.session.query(Athlete).filter_by(fis_id=row.Fiscode).first()
                 if not athlete:
                     athlete = self._athlete_from_row(row)
                     self.session.add(athlete)
                     self.session.flush()
                 
-                athlete_points = AthletePoints(
-                    athlete_id=athlete.id,
-                    points_list_id=points_list.id,
-                    sl_points=self._float_or_none(row['SLpoints']),
-                    gs_points=self._float_or_none(row['GSpoints']),
-                    sg_points=self._float_or_none(row['SGpoints']),
-                    dh_points=self._float_or_none(row['DHpoints']),
-                    ac_points=self._float_or_none(row['ACpoints']),
-                    sl_rank=self._int_or_none(row['SLpos']),
-                    gs_rank=self._int_or_none(row['GSpos']),
-                    sg_rank=self._int_or_none(row['SGpos']),
-                    dh_rank=self._int_or_none(row['DHpos']),
-                    ac_rank=self._int_or_none(row['ACpos']),
-                    calculated_date=pd.to_datetime(row['Calculationdate'],dayfirst=True).date()
-                )
+                athlete_points = self._athlete_points_from_row(row, athlete, points_list)
                 self.session.add(athlete_points)
                 
             except Exception as e:
