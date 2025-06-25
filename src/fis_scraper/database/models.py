@@ -58,6 +58,8 @@ class RaceResult(Base):
     Attributes:
         id (int): Primary key
         athlete_id (int): Foreign key to Athlete
+        fis_db_id (Optional[int]): FIS race ID (e.g., 124886)
+        race_codex (Optional[str]): FIS competition codex (e.g., "1970")
         race_date (date): Date of the race
         discipline (Discipline): Race discipline
         points (Optional[float]): FIS points earned
@@ -70,6 +72,8 @@ class RaceResult(Base):
 
     id: Mapped[int] = Column(Integer, primary_key=True)
     athlete_id: Mapped[int] = Column(Integer, ForeignKey('athletes.id'), nullable=False)
+    fis_db_id: Mapped[Optional[int]] = Column(Integer)  # FIS race ID
+    race_codex: Mapped[Optional[str]] = Column(String)  # FIS competition codex
     race_date: Mapped[Date] = Column(Date, nullable=False)
     discipline: Mapped[Discipline] = Column(Enum(Discipline), nullable=False)
     points: Mapped[Optional[float]] = Column(Float)
