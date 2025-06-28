@@ -58,7 +58,7 @@ class RaceResult(Base):
     Attributes:
         id (int): Primary key
         athlete_id (int): Foreign key to Athlete
-        fis_db_id (Optional[int]): FIS race ID (e.g., 124886)
+        fis_db_id (Optional[int]): FIS race ID (e.g., 124886))
         race_codex (Optional[str]): FIS competition codex (e.g., "1970")
         race_date (date): Date of the race
         discipline (Discipline): Race discipline

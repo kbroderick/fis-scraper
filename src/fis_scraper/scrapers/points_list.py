@@ -5,7 +5,6 @@ import requests
 import re
 import logging
 from datetime import datetime, date
-
 from typing import List, Dict, Optional, Tuple, Union
 from sqlalchemy.orm import Session
 from bs4 import BeautifulSoup
@@ -14,6 +13,7 @@ import pandas as pd
 from pandas._libs.tslibs.parsing import DateParseError
 from pandas.errors import ParserError
 
+from .fis_constants import DATA_URL, FisSector
 from ..database.connection import get_session
 from ..database.models import PointsList, Athlete, AthletePoints, Gender
 
@@ -31,8 +31,7 @@ class PointsListScraper:
     parsing athlete information and their points/rankings across different disciplines.
     """
     
-    BASE_URL: str = "https://www.fis-ski.com/DB/alpine-skiing/fis-points-lists.html"
-    DATA_URL: str = "https://data.fis-ski.com"
+    POINTS_LISTS_URL: str = "https://www.fis-ski.com/DB/alpine-skiing/fis-points-lists.html"
     DATA_FOLDER: str = "data" # local folder for file storage, lists in points_lists subfolder
     
     def __init__(self) -> None:
@@ -88,7 +87,7 @@ class PointsListScraper:
         """
         points_lists = []
  
-        response = requests.get(self.BASE_URL)
+        response = requests.get(self.POINTS_LISTS_URL)
         soup = BeautifulSoup(response.text, 'html.parser')
        
         for row in soup.find_all("div", {"class":"container g-xs-24"}):
@@ -404,7 +403,7 @@ class PointsListScraper:
         list_params = f"export_csv=true&sectorcode={sectorcode}&seasoncode={seasoncode}"
         if listid:
             list_params += f"&listid={listid}"
-        url = f"{self.DATA_URL}/{url_path}?{list_params}"
+        url = f"{DATA_URL}/{url_path}?{list_params}"
         return url
 
     def _extract_season(self, name: str) -> Optional[str]:

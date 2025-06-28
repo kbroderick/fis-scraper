@@ -1,10 +1,12 @@
 import pytest
+import pytest_mock
 from datetime import date, datetime
 from unittest.mock import Mock, patch, MagicMock, mock_open
 from bs4 import BeautifulSoup, Tag
 from typing import Dict, List, Any, Optional
 
 from src.fis_scraper.database.models import Athlete, RaceResult, Discipline, Gender, PointsList
+from src.fis_scraper.scrapers.fis_constants import FisCategory, BASE_URL, DATA_URL
 from src.fis_scraper.scrapers.race_results import RaceResultsScraper
 
 
@@ -63,8 +65,8 @@ class TestRaceResultsScraper:
     def test_init(self, scraper: RaceResultsScraper) -> None:
         """Test RaceResultsScraper initialization."""
         assert scraper.session is not None
-        assert scraper.BASE_URL == "https://www.fis-ski.com/DB/alpine-skiing/results.html"
-        assert scraper.DATA_URL == "https://data.fis-ski.com"
+        assert scraper.CATEGORY_URL == f"{DATA_URL}/fis_events/ajax/calendarfunctions/get_select_category.html"
+        assert scraper.RESULTS_URL == f"{DATA_URL}/alpine-skiing/results.html"
     
     @patch('src.fis_scraper.scrapers.race_results.requests.get')
     def test_discover_races_success(self, mock_get: Mock, scraper: RaceResultsScraper) -> None:
@@ -592,4 +594,53 @@ class TestRealRaceResultsScraping:
         total_starters = scraper._calculate_total_starters(results)
         total_finishers = scraper._calculate_total_finishers(results)
         assert total_finishers == 45
-        assert total_starters >= total_finishers 
+        assert total_starters >= total_finishers
+
+class TestFindEventsByCategory:
+    """Test finding events by category."""
+
+    @pytest.fixture
+    def scraper(self) -> RaceResultsScraper:
+        """Create a RaceResultsScraper instance for testing."""
+        return RaceResultsScraper()
+
+    @patch(f'{RaceResultsScraper.__module__}.requests.get')
+    def test_find_events_by_category(self, mock_get: Mock, scraper: RaceResultsScraper):
+        """Test finding events by category."""
+        mock_response = Mock()
+        mock_response.raise_for_status.return_value = None
+        mock_response.text = open('tests/data/get_select_category.html', 'r').read()
+        mock_get.return_value = mock_response
+        events = scraper.find_events_by_category('UNI', 2025)
+        assert len(events) == 26
+        assert events[0] == 'https://www.fis-ski.com/DB/general/event-details.html?sectorcode=AL&eventid=57032&seasoncode=2025'
+
+class TestFindRaces:
+    @pytest.fixture
+    def scraper(self) -> RaceResultsScraper:
+        """Create a RaceResultsScraper instance for testing."""
+        return RaceResultsScraper()
+
+    def test_find_events_by_season(self, scraper: RaceResultsScraper, mocker):
+        """Test finding events by season."""
+        mocker.patch(f'{RaceResultsScraper.__module__}.RaceResultsScraper.find_events_by_category', return_value=['https://www.fis-ski.com/DB/general/event-details.html?sectorcode=AL&eventid=57032&seasoncode=2025', 'https://www.fis-ski.com/DB/general/event-details.html?sectorcode=AL&eventid=57033&seasoncode=2025'])
+
+        events = scraper.find_events_by_season(2025)
+        assert scraper.find_events_by_category.call_count == len(FisCategory)
+        assert len(events) == 2 * len(FisCategory)
+        assert events[0] == 'https://www.fis-ski.com/DB/general/event-details.html?sectorcode=AL&eventid=57032&seasoncode=2025'
+
+    @patch(f'{RaceResultsScraper.__module__}.requests.get')
+    def test_find_race_links_by_event(self, mock_get: Mock, scraper: RaceResultsScraper):
+        """Test finding races by event."""
+        mock_response = Mock()
+        mock_response.raise_for_status.return_value = None
+        mock_response.text = open('tests/data/eventdetails57032.html', 'r').read()
+        mock_get.return_value = mock_response
+        races = scraper.find_races_by_event('https://www.fis-ski.com/DB/general/event-details.html?sectorcode=AL&eventid=57032&seasoncode=2025')
+        assert len(races) == 4
+        assert races[0] == 126056
+
+    def test_parse_race_id_from_link(self, scraper: RaceResultsScraper):
+        """Test parsing race ID from link."""
+        assert scraper._parse_race_id_from_link('https://www.fis-ski.com/DB/general/results.html?sectorcode=AL&raceid=126056') == 126056

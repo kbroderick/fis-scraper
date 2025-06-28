@@ -14,6 +14,7 @@ import pandas as pd
 from sqlalchemy import select
 
 import src.fis_scraper
+from src.fis_scraper.scrapers.fis_constants import BASE_URL
 from src.fis_scraper.scrapers.points_list import PointsListScraper
 from src.fis_scraper.database.models import PointsList, Athlete, AthletePoints, Gender
 
@@ -253,7 +254,7 @@ def test_get_points_lists(scraper, mocker):
     points_lists = scraper.get_points_lists(include_base_lists=True)
     
     # Verify the request was made to the correct URL
-    requests.get.assert_called_once_with(scraper.BASE_URL)
+    requests.get.assert_called_once_with(scraper.POINTS_LISTS_URL)
    
     # Verify we got the expected number of points lists
     assert len(points_lists) == 349
