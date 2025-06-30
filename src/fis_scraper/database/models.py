@@ -68,6 +68,12 @@ class Race(Base):
         race_category (Optional[str]): FIS race category
         total_starters (Optional[int]): Total number of starters
         total_finishers (Optional[int]): Total number of finishers
+        start_altitude (Optional[int]): Start altitude in meters
+        finish_altitude (Optional[int]): Finish altitude in meters
+        length (Optional[int]): Course length in meters
+        gates (Optional[int]): Number of gates
+        turning_gates (Optional[int]): Number of turning gates
+        homologation (Optional[str]): Homologation number
         results (List[RaceResult]): List of race results for this race
     """
     __tablename__ = 'races'
@@ -84,6 +90,12 @@ class Race(Base):
     race_category: Mapped[Optional[str]] = Column(String)  # FIS race category
     total_starters: Mapped[Optional[int]] = Column(Integer, nullable=True)  # Total starters
     total_finishers: Mapped[Optional[int]] = Column(Integer, nullable=True)  # Total finishers
+    start_altitude: Mapped[Optional[int]] = Column(Integer, nullable=True)  # Start altitude in meters
+    finish_altitude: Mapped[Optional[int]] = Column(Integer, nullable=True)  # Finish altitude in meters
+    length: Mapped[Optional[int]] = Column(Integer, nullable=True)  # Course length in meters
+    gates: Mapped[Optional[int]] = Column(Integer, nullable=True)  # Number of gates
+    turning_gates: Mapped[Optional[int]] = Column(Integer, nullable=True)  # Number of turning gates
+    homologation: Mapped[Optional[str]] = Column(String, nullable=True)  # Homologation number
     
     results: Mapped[List["RaceResult"]] = relationship("RaceResult", back_populates="race")
 

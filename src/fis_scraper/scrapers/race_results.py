@@ -300,12 +300,14 @@ class RaceResultsScraper:
             Dict[str, Any]: Race header information
         """
         race_info: Dict[str, Any] = {}
+        
         # Race name and location from <title>
         title = soup.find('title')
         if title and 'Results -' in title.text:
             parts = title.text.split('Results -')
             if len(parts) > 1:
                 race_info['race_name'] = parts[1].strip()
+        
         # Codex from JS or span
         codex = None
         script = soup.find('script', string=lambda t: t and 'competitionCodex' in t)
@@ -322,9 +324,126 @@ class RaceResultsScraper:
                     codex = int(m.group(1))
         if codex:
             race_info['race_codex'] = codex
-        # TODO: Parse date, discipline, etc. if available
-        # For now, leave as None or parse from elsewhere if needed
+        
+        # Parse date from event header
+        date_element = soup.find('div', class_='timezone-date')
+        if date_element and date_element.get('data-date'):
+            try:
+                date_str = date_element.get('data-date')
+                race_info['race_date'] = datetime.strptime(date_str, '%Y-%m-%d').date()
+            except ValueError:
+                pass
+        
+        # Parse discipline from event header
+        discipline_element = soup.find('div', class_='event-header__kind')
+        if discipline_element:
+            discipline_text = discipline_element.get_text(strip=True)
+            # Extract discipline from text like "Men's Giant Slalom" or "Women's Slalom"
+            discipline_match = re.search(r"(?:Men's|Women's)\s+(.+)", discipline_text)
+            if discipline_match:
+                discipline_str = discipline_match.group(1).strip()
+                race_info['discipline'] = self._parse_discipline(discipline_str)
+        
+        # Parse race category from event header subtitle
+        category_element = soup.find('div', class_='event-header__subtitle')
+        if category_element:
+            race_info['race_category'] = category_element.get_text(strip=True)
+        
+        # Parse location from event header name
+        location_element = soup.find('h1', class_='heading')
+        if location_element:
+            location_text = location_element.get_text(strip=True)
+            # Extract location from text like "Aspen / Highlands (USA)" or "Sugarloaf (USA)"
+            location_match = re.search(r"(.+?)\s*\([A-Z]{3}\)", location_text)
+            if location_match:
+                race_info['location'] = location_match.group(1).strip()
+        
+        # Parse course details
+        course_details = self._parse_course_details(soup)
+        race_info.update(course_details)
+        
         return race_info
+
+    def _parse_course_details(self, soup: BeautifulSoup) -> Dict[str, Any]:
+        """Parse course details from the FIS HTML structure.
+        
+        Args:
+            soup: BeautifulSoup object of race page
+        
+        Returns:
+            Dict[str, Any]: Course details including altitude, length, gates, homologation
+        """
+        course_info: Dict[str, Any] = {}
+        
+        def find_label_value(row, label_class, value_class, value_exact=True):
+            if not value_exact:
+                # For run sections: get all justify-left divs, first is label, second is value (skip bold)
+                justify_left_divs = [div for div in row.find_all('div', recursive=True) if 'justify-left' in div.get('class', [])]
+                label_div = None
+                value_div = None
+                for div in justify_left_divs:
+                    if 'bold' in div.get('class', []):
+                        label_div = div
+                    elif value_div is None:
+                        value_div = div
+                return label_div, value_div
+            else:
+                label_div = None
+                value_div = None
+                for div in row.find_all('div', recursive=True):
+                    classes = div.get('class', [])
+                    if label_class in ' '.join(classes):
+                        label_div = div
+                    if value_class in ' '.join(classes):
+                        value_div = div
+                return label_div, value_div
+
+        # Find the "More Information" section that contains course details
+        sections = soup.find_all('section', class_='section_more-info')
+        
+        for section in sections:
+            section_header = section.find('h3', class_='heading_l3')
+            if not section_header:
+                continue
+            header_text = section_header.get_text(strip=True)
+            # Parse altitude and length information from "Technical data" section
+            if header_text == 'Technical data':
+                rows = section.find_all(['div', 'a'], class_='table-row')
+                for row in rows:
+                    label_div, value_div = find_label_value(row, 'justify-left bold', 'justify-right', value_exact=True)
+                    if label_div and value_div:
+                        label = label_div.get_text(strip=True)
+                        value = value_div.get_text(strip=True)
+                        import re
+                        if label == 'Start Altitude':
+                            match = re.search(r'(\d+)', value)
+                            if match:
+                                course_info['start_altitude'] = int(match.group(1))
+                        elif label == 'Finish Altitude':
+                            match = re.search(r'(\d+)', value)
+                            if match:
+                                course_info['finish_altitude'] = int(match.group(1))
+                        elif label == 'Length':
+                            match = re.search(r'(\d+)', value)
+                            if match:
+                                course_info['length'] = int(match.group(1))
+                        elif label == 'Homologation Number':
+                            course_info['homologation'] = value.strip()
+            # Look for gates information in run sections (1st Run, 2nd Run, or Course)
+            elif any(run_type in header_text for run_type in ['1st Run', '2nd Run', 'Course']):
+                rows = section.find_all(['div', 'a'], class_='table-row')
+                for row in rows:
+                    label_div, value_div = find_label_value(row, 'justify-left bold', 'justify-left', value_exact=False)
+                    if label_div and value_div:
+                        label = label_div.get_text(strip=True)
+                        value = value_div.get_text(strip=True)
+                        if label == 'Number of Gates':
+                            if value.isdigit() and 'gates' not in course_info:
+                                course_info['gates'] = int(value)
+                        elif label == 'Turning Gates':
+                            if value.isdigit() and 'turning_gates' not in course_info:
+                                course_info['turning_gates'] = int(value)
+        return course_info
 
     def _parse_fis_table_row(self, row: Tag, race_info: Dict[str, Any], race_id: int) -> Optional[Dict[str, Any]]:
         """Parse a single FIS result row from <a class="table-row">, supporting real FIS HTML structure.
@@ -472,8 +591,8 @@ class RaceResultsScraper:
             discipline_str = discipline_element.get_text(strip=True)
             race_info['discipline'] = self._parse_discipline(discipline_str)
         
-        # Extract race category
-        category_element = soup.find('div', class_='race-category')
+        # Extract race category from event header subtitle
+        category_element = soup.find('div', class_='event-header__subtitle')
         if category_element:
             race_info['race_category'] = category_element.get_text(strip=True)
         
@@ -699,6 +818,15 @@ class RaceResultsScraper:
         """
         if not discipline_str:
             return None
+        
+        # Clean the discipline string
+        discipline_str = discipline_str.strip()
+        
+        # Handle training variations by extracting the base discipline
+        if 'Training' in discipline_str:
+            # Extract the base discipline from "Downhill Training", "Giant Slalom Training", etc.
+            base_discipline = discipline_str.replace(' Training', '').strip()
+            discipline_str = base_discipline
             
         discipline_map = {
             'SL': Discipline.SL,
@@ -713,7 +841,7 @@ class RaceResultsScraper:
             'Alpine Combined': Discipline.AC
         }
         
-        return discipline_map.get(discipline_str.strip())
+        return discipline_map.get(discipline_str)
     
     def _is_float(self, value: str) -> bool:
         """Check if string can be converted to float.
@@ -838,7 +966,13 @@ class RaceResultsScraper:
                 penalty=result_data.get('penalty'),
                 race_category=result_data.get('race_category'),
                 total_starters=result_data.get('total_starters'),
-                total_finishers=result_data.get('total_finishers')
+                total_finishers=result_data.get('total_finishers'),
+                start_altitude=result_data.get('start_altitude'),
+                finish_altitude=result_data.get('finish_altitude'),
+                length=result_data.get('length'),
+                gates=result_data.get('gates'),
+                turning_gates=result_data.get('turning_gates'),
+                homologation=result_data.get('homologation')
             )
             
             self.session.add(race)

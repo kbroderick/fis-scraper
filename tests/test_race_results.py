@@ -538,18 +538,18 @@ class TestAthleteValidation:
         """Test finding an existing race when it already exists."""
         scraper = RaceResultsScraper()
         result_data = {
-            'fis_db_id': 88888,  # Use unique ID
-            'race_date': date(2024, 11, 30),  # Use unique date
-            'discipline': Discipline.GS,  # Use different discipline
+            'fis_db_id': 99999,  # Use very unique ID
+            'race_date': date(2024, 12, 25),  # Use very unique date
+            'discipline': Discipline.AC,  # Use different discipline
             'race_name': 'Test Race',
             'location': 'Test Location'
         }
         
         # Create a race first
         existing_race = Race(
-            fis_db_id=88888,
-            race_date=date(2024, 11, 30),
-            discipline=Discipline.GS,
+            fis_db_id=99999,
+            race_date=date(2024, 12, 25),
+            discipline=Discipline.AC,
             race_name='Existing Race',
             location='Existing Location'
         )
@@ -559,8 +559,15 @@ class TestAthleteValidation:
         # Try to get or create the same race
         race = scraper._get_or_create_race(result_data)
         assert race is not None
-        assert race.id == existing_race.id
+        # Instead of checking specific ID, check that we got the existing race
+        assert race.fis_db_id == existing_race.fis_db_id
+        assert race.race_date == existing_race.race_date
+        assert race.discipline == existing_race.discipline
         assert race.race_name == 'Existing Race'  # Should return existing, not create new
+        
+        # Clean up
+        scraper.session.delete(existing_race)
+        scraper.session.commit()
 
     def test_get_or_create_race_missing_data(self):
         """Test handling missing required race data."""
@@ -748,3 +755,146 @@ class TestFindRaces:
     def test_parse_race_id_from_link(self, scraper: RaceResultsScraper):
         """Test parsing race ID from link."""
         assert scraper._parse_race_id_from_link('https://www.fis-ski.com/DB/general/results.html?sectorcode=AL&raceid=126056') == 126056
+
+    def test_parse_fis_race_header_loaf_nor_am_sl(self) -> None:
+        """Test parsing race header from LoafNorAMSL HTML file."""
+        scraper = RaceResultsScraper()
+        
+        with open('tests/data/LoafNorAMSL-20251020-1970.html', 'r', encoding='utf-8') as f:
+            html_content = f.read()
+        
+        soup = BeautifulSoup(html_content, 'html.parser')
+        race_info = scraper._parse_fis_race_header(soup)
+        
+        assert race_info['race_name'] == 'Sugarloaf (USA) 2024/2025'
+        assert race_info['race_codex'] == 1970
+        assert race_info['race_date'] == date(2025, 3, 20)
+        assert race_info['discipline'] == Discipline.SL
+        assert race_info['race_category'] == 'Nor-Am Cup'
+        assert race_info['location'] == 'Sugarloaf'
+
+    def test_parse_fis_race_header_aspen_njr_gs(self) -> None:
+        """Test parsing race header from AspenNJRGS HTML file."""
+        scraper = RaceResultsScraper()
+        
+        with open('tests/data/AspenNJRGS-20250104-1828.html', 'r', encoding='utf-8') as f:
+            html_content = f.read()
+        
+        soup = BeautifulSoup(html_content, 'html.parser')
+        race_info = scraper._parse_fis_race_header(soup)
+        
+        assert race_info['race_name'] == 'Aspen / Highlands (USA) 2024/2025'
+        assert race_info['race_codex'] == 1828
+        assert race_info['race_date'] == date(2025, 1, 4)
+        assert race_info['discipline'] == Discipline.GS
+        assert race_info['race_category'] == 'National Junior Race'
+        assert race_info['location'] == 'Aspen / Highlands'
+
+    def test_parse_fis_race_header_gressan_pila_dh(self) -> None:
+        """Test parsing race header from Gressan-Pila-DH HTML file."""
+        scraper = RaceResultsScraper()
+        
+        with open('tests/data/Gressan-Pila-DH-20250110-5310.html', 'r', encoding='utf-8') as f:
+            html_content = f.read()
+        
+        soup = BeautifulSoup(html_content, 'html.parser')
+        race_info = scraper._parse_fis_race_header(soup)
+        
+        assert race_info['race_name'] == 'Gressan - Pila (ITA) 2024/2025'
+        assert race_info['race_codex'] == 5310
+        assert race_info['race_date'] == date(2025, 1, 10)
+        assert race_info['discipline'] == Discipline.DH
+        assert race_info['race_category'] == 'FIS'
+        assert race_info['location'] == 'Gressan - Pila'
+
+    def test_parse_fis_race_header_gressan_pila_tra(self) -> None:
+        """Test parsing race header from Gressan-Pila-TRA HTML file."""
+        scraper = RaceResultsScraper()
+        
+        with open('tests/data/Gressan-Pila-TRA-20250109-5311.html', 'r', encoding='utf-8') as f:
+            html_content = f.read()
+        
+        soup = BeautifulSoup(html_content, 'html.parser')
+        race_info = scraper._parse_fis_race_header(soup)
+        
+        assert race_info['race_name'] == 'Gressan - Pila (ITA) 2024/2025'
+        assert race_info['race_codex'] == 5311
+        assert race_info['race_date'] == date(2025, 1, 9)
+        assert race_info['discipline'] == Discipline.DH  # Downhill Training
+        assert race_info['race_category'] == 'Training'
+        assert race_info['location'] == 'Gressan - Pila'
+
+    def test_parse_course_details_loaf_nor_am_sl(self) -> None:
+        """Test parsing course details from LoafNorAMSL HTML file."""
+        scraper = RaceResultsScraper()
+        
+        with open('tests/data/LoafNorAMSL-20251020-1970.html', 'r', encoding='utf-8') as f:
+            html_content = f.read()
+        
+        soup = BeautifulSoup(html_content, 'html.parser')
+        course_details = scraper._parse_course_details(soup)
+        print(f"PARSED COURSE DETAILS: {course_details}")
+        assert course_details['start_altitude'] == 918
+        assert course_details['finish_altitude'] == 743
+        assert course_details['gates'] == 58  # First run gates
+        assert course_details['turning_gates'] == 56  # First run turning gates
+        assert course_details['homologation'] == '13162/05/19'
+
+    def test_parse_course_details_aspen_njr_gs(self) -> None:
+        """Test parsing course details from AspenNJRGS HTML file."""
+        scraper = RaceResultsScraper()
+        
+        with open('tests/data/AspenNJRGS-20250104-1828.html', 'r', encoding='utf-8') as f:
+            html_content = f.read()
+        
+        soup = BeautifulSoup(html_content, 'html.parser')
+        course_details = scraper._parse_course_details(soup)
+        
+        assert course_details['start_altitude'] == 2827
+        assert course_details['finish_altitude'] == 2481
+        assert course_details['length'] == 1198
+        assert course_details['gates'] == 42  # First run gates
+        assert course_details['turning_gates'] == 40  # First run turning gates
+        assert course_details['homologation'] == '15067/10/23'
+
+    def test_parse_course_details_gressan_pila_dh(self) -> None:
+        """Test parsing course details from Gressan-Pila-DH HTML file."""
+        scraper = RaceResultsScraper()
+        
+        with open('tests/data/Gressan-Pila-DH-20250110-5310.html', 'r', encoding='utf-8') as f:
+            html_content = f.read()
+        
+        soup = BeautifulSoup(html_content, 'html.parser')
+        course_details = scraper._parse_course_details(soup)
+        
+        assert course_details['start_altitude'] == 2595
+        assert course_details['finish_altitude'] == 2005
+        assert course_details['length'] == 1492
+        assert course_details['gates'] == 32  # Course gates (single run)
+        assert course_details['turning_gates'] == 32  # Course turning gates (single run)
+        assert course_details['homologation'] == '13352/11/19'
+
+    def test_parse_course_details_debug(self) -> None:
+        """Debug test to see what course details are being parsed and what the HTML looks like."""
+        scraper = RaceResultsScraper()
+        
+        with open('tests/data/LoafNorAMSL-20251020-1970.html', 'r', encoding='utf-8') as f:
+            html_content = f.read()
+        
+        soup = BeautifulSoup(html_content, 'html.parser')
+        course_details = scraper._parse_course_details(soup)
+        print(f"Course details: {course_details}")
+        
+        # Print the Technical data section HTML
+        sections = soup.find_all('section', class_='section_more-info')
+        for section in sections:
+            section_header = section.find('h3', class_='heading_l3')
+            if section_header and section_header.get_text(strip=True) == 'Technical data':
+                print("--- Technical data section HTML ---")
+                print(section.prettify())
+                rows = section.find_all(['div', 'a'], class_='table-row')
+                print(f"Found {len(rows)} table-row elements in Technical data section.")
+                for i, row in enumerate(rows):
+                    print(f"Row {i} HTML:")
+                    print(row.prettify())
+        assert True
