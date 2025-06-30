@@ -5,7 +5,7 @@ from unittest.mock import Mock, patch, MagicMock, mock_open
 from bs4 import BeautifulSoup, Tag
 from typing import Dict, List, Any, Optional
 
-from src.fis_scraper.database.models import Athlete, RaceResult, Discipline, Gender, PointsList
+from src.fis_scraper.database.models import Athlete, RaceResult, Discipline, Gender, PointsList, Race
 from src.fis_scraper.scrapers.fis_constants import FisCategory, BASE_URL, DATA_URL
 from src.fis_scraper.scrapers.race_results import RaceResultsScraper
 
@@ -249,8 +249,8 @@ class TestRaceResultsScraper:
         assert scraper._is_float("123") is True
     
     def test_save_race_results_with_fis_db_id(self, scraper, sample_result_data):
-        """Test that fis_db_id is correctly stored in RaceResult."""
-        from src.fis_scraper.database.models import Athlete, Gender
+        """Test that fis_db_id is correctly stored in Race table and linked to RaceResult."""
+        from src.fis_scraper.database.models import Athlete, Gender, Race
         
         # Check if athlete with id=1 already exists, if not create it
         existing_athlete = scraper.session.query(Athlete).filter_by(id=1).first()
@@ -278,10 +278,18 @@ class TestRaceResultsScraper:
             })
             saved_count = scraper.save_race_results([sample_result_data])
             assert saved_count == 1
+            
+            # Check that Race record was created
+            race = scraper.session.query(Race).first()
+            assert race is not None
+            assert race.fis_db_id == 12345
+            assert race.race_codex == '1970'
+            
+            # Check that RaceResult was created and linked to Race
             race_result = scraper.session.query(RaceResult).first()
             assert race_result is not None
-            assert race_result.fis_db_id == 12345
-            assert race_result.race_codex == '1970'
+            assert race_result.race_id == race.id
+            assert race_result.athlete_id == athlete.id
 
 
 class TestPointsListAutoIngestion:
@@ -495,6 +503,93 @@ class TestAthleteValidation:
         
         assert athlete == mock_athlete
 
+    def test_get_or_create_race_new_race(self):
+        """Test creating a new race when it doesn't exist."""
+        scraper = RaceResultsScraper()
+        result_data = {
+            'fis_db_id': 99999,  # Use unique ID to avoid conflicts
+            'race_date': date(2024, 12, 31),  # Use unique date
+            'discipline': Discipline.SL,
+            'race_name': 'Test Race',
+            'location': 'Test Location',
+            'race_codex': '1970',
+            'win_time': 45.23,
+            'penalty': 15.00,
+            'race_category': 'FIS',
+            'total_starters': 50,
+            'total_finishers': 45
+        }
+        
+        race = scraper._get_or_create_race(result_data)
+        assert race is not None
+        assert race.fis_db_id == 99999
+        assert race.race_date == date(2024, 12, 31)
+        assert race.discipline == Discipline.SL
+        assert race.race_name == 'Test Race'
+        assert race.location == 'Test Location'
+        assert race.race_codex == '1970'
+        assert race.win_time == 45.23
+        assert race.penalty == 15.00
+        assert race.race_category == 'FIS'
+        assert race.total_starters == 50
+        assert race.total_finishers == 45
+
+    def test_get_or_create_race_existing_race(self):
+        """Test finding an existing race when it already exists."""
+        scraper = RaceResultsScraper()
+        result_data = {
+            'fis_db_id': 88888,  # Use unique ID
+            'race_date': date(2024, 11, 30),  # Use unique date
+            'discipline': Discipline.GS,  # Use different discipline
+            'race_name': 'Test Race',
+            'location': 'Test Location'
+        }
+        
+        # Create a race first
+        existing_race = Race(
+            fis_db_id=88888,
+            race_date=date(2024, 11, 30),
+            discipline=Discipline.GS,
+            race_name='Existing Race',
+            location='Existing Location'
+        )
+        scraper.session.add(existing_race)
+        scraper.session.commit()
+        
+        # Try to get or create the same race
+        race = scraper._get_or_create_race(result_data)
+        assert race is not None
+        assert race.id == existing_race.id
+        assert race.race_name == 'Existing Race'  # Should return existing, not create new
+
+    def test_get_or_create_race_missing_data(self):
+        """Test handling missing required race data."""
+        scraper = RaceResultsScraper()
+        
+        # Missing fis_db_id
+        result_data = {
+            'race_date': date(2024, 1, 15),
+            'discipline': Discipline.SL
+        }
+        race = scraper._get_or_create_race(result_data)
+        assert race is None
+        
+        # Missing race_date
+        result_data = {
+            'fis_db_id': 12345,
+            'discipline': Discipline.SL
+        }
+        race = scraper._get_or_create_race(result_data)
+        assert race is None
+        
+        # Missing discipline
+        result_data = {
+            'fis_db_id': 12345,
+            'race_date': date(2024, 1, 15)
+        }
+        race = scraper._get_or_create_race(result_data)
+        assert race is None
+
 
 class TestRaceResultsScraperIntegration:
     """Integration tests for RaceResultsScraper."""
@@ -520,16 +615,25 @@ class TestRaceResultsScraperIntegration:
     def test_race_results_data_structure(self, scraper: RaceResultsScraper) -> None:
         """Test that race results have the expected data structure."""
         # Test that the RaceResult model has all required fields
-        required_fields = [
-            'athlete_id', 'race_date', 'discipline', 'points', 'rank',
-            'race_name', 'location', 'win_time', 'racer_time', 'penalty',
-            'race_points', 'race_category', 'result', 'total_starters', 'total_finishers'
+        required_race_result_fields = [
+            'race_id', 'athlete_id', 'points', 'rank',
+            'racer_time', 'race_points', 'result'
         ]
         
         # This is a structural test to ensure our model matches requirements
         race_result = RaceResult()
-        for field in required_fields:
+        for field in required_race_result_fields:
             assert hasattr(race_result, field), f"RaceResult missing field: {field}"
+        
+        # Test that the Race model has all required fields
+        required_race_fields = [
+            'fis_db_id', 'race_codex', 'race_date', 'discipline', 'race_name', 
+            'location', 'win_time', 'penalty', 'race_category', 'total_starters', 'total_finishers'
+        ]
+        
+        race = Race()
+        for field in required_race_fields:
+            assert hasattr(race, field), f"Race missing field: {field}"
     
     def test_points_list_validation_integration(self, scraper: RaceResultsScraper) -> None:
         """Test integration of points list validation with race scraping."""

@@ -12,7 +12,7 @@ from sqlalchemy.exc import IntegrityError
 
 from .fis_constants import DATA_URL, FisSector, FisCategory
 from ..database.connection import get_session
-from ..database.models import Athlete, RaceResult, Discipline, Gender, PointsList
+from ..database.models import Athlete, RaceResult, Discipline, Gender, PointsList, Race
 from .points_list import PointsListScraper
 
 # Configure logging
@@ -798,6 +798,58 @@ class RaceResultsScraper:
         
         return None
     
+    def _get_or_create_race(self, result_data: Dict[str, Any]) -> Optional[Race]:
+        """Get or create a Race record from result data.
+        
+        Args:
+            result_data: Race result data containing race information
+            
+        Returns:
+            Optional[Race]: Race object if found or created, None otherwise
+        """
+        fis_db_id = result_data.get('fis_db_id')
+        race_date = result_data.get('race_date')
+        discipline = result_data.get('discipline')
+        
+        if not all([fis_db_id, race_date, discipline]):
+            logger.error(f"Missing required race data: fis_db_id={fis_db_id}, race_date={race_date}, discipline={discipline}")
+            return None
+        
+        # Try to find existing race
+        race = self.session.query(Race).filter_by(
+            fis_db_id=fis_db_id,
+            race_date=race_date,
+            discipline=discipline
+        ).first()
+        
+        if race:
+            return race
+        
+        # Create new race record
+        try:
+            race = Race(
+                fis_db_id=fis_db_id,
+                race_codex=result_data.get('race_codex'),
+                race_date=race_date,
+                discipline=discipline,
+                race_name=result_data.get('race_name'),
+                location=result_data.get('location'),
+                win_time=result_data.get('win_time'),
+                penalty=result_data.get('penalty'),
+                race_category=result_data.get('race_category'),
+                total_starters=result_data.get('total_starters'),
+                total_finishers=result_data.get('total_finishers')
+            )
+            
+            self.session.add(race)
+            self.session.flush()  # Get the ID
+            logger.info(f"Created new race: {result_data.get('race_name')} (FIS DB ID: {fis_db_id})")
+            return race
+            
+        except Exception as e:
+            logger.error(f"Error creating race: {e}")
+            return None
+    
     def save_race_results(self, results: List[Dict[str, Any]]) -> int:
         """Save race results to database.
         
@@ -807,7 +859,17 @@ class RaceResultsScraper:
         Returns:
             int: Number of results saved
         """
+        if not results:
+            return 0
+        
         saved_count = 0
+        
+        # Get or create the race record from the first result
+        # (all results should have the same race information)
+        race = self._get_or_create_race(results[0])
+        if not race:
+            logger.error("Could not create or find race record")
+            return 0
         
         for result_data in results:
             try:
@@ -820,25 +882,15 @@ class RaceResultsScraper:
                         logger.warning(f"Could not find or create athlete for {result_data.get('athlete_name')}")
                         continue
                 
-                # Create race result
+                # Create race result linked to the race
                 race_result = RaceResult(
+                    race_id=race.id,
                     athlete_id=athlete.id,
-                    fis_db_id=result_data.get('fis_db_id'),  # Race ID
-                    race_codex=result_data.get('race_codex'),
-                    race_date=result_data['race_date'],
-                    discipline=result_data['discipline'],
                     points=result_data.get('points'),
                     rank=result_data.get('rank'),
-                    race_name=result_data.get('race_name'),
-                    location=result_data.get('location'),
-                    win_time=result_data.get('win_time'),
                     racer_time=result_data.get('racer_time'),
-                    penalty=result_data.get('penalty'),
                     race_points=result_data.get('race_points'),
-                    race_category=result_data.get('race_category'),
-                    result=result_data.get('result'),
-                    total_starters=result_data.get('total_starters'),
-                    total_finishers=result_data.get('total_finishers')
+                    result=result_data.get('result')
                 )
                 
                 self.session.add(race_result)
@@ -853,7 +905,7 @@ class RaceResultsScraper:
         
         try:
             self.session.commit()
-            logger.info(f"Successfully saved {saved_count} race results")
+            logger.info(f"Successfully saved {saved_count} race results for race {race.fis_db_id}")
         except Exception as e:
             logger.error(f"Error committing results: {e}")
             self.session.rollback()

@@ -62,7 +62,9 @@ This Python application scrapes and analyzes FIS (International Ski Federation) 
    ```
 
    TODO:
-      - split dev / testing DB environments
+      - refactor--Race table in addition to RaceResults, limit RaceResults
+         to truly per-racer data and Race table has codex, location,
+         penalty, etc
       - add ability to ingest race results via scraping
       - allow for CSV input of roster for eval
       - create per-athlete analysis (points, rank, and results over time)

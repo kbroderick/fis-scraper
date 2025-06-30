@@ -52,43 +52,68 @@ class Athlete(Base):
     results: Mapped[List["RaceResult"]] = relationship("RaceResult", back_populates="athlete")
     points: Mapped[List["AthletePoints"]] = relationship("AthletePoints", back_populates="athlete")
 
-class RaceResult(Base):
-    """Database model representing a single race result.
+class Race(Base):
+    """Database model representing a FIS race event.
     
     Attributes:
         id (int): Primary key
-        athlete_id (int): Foreign key to Athlete
-        fis_db_id (Optional[int]): FIS race ID (e.g., 124886))
+        fis_db_id (Optional[int]): FIS race ID (e.g., 124886)
         race_codex (Optional[str]): FIS competition codex (e.g., "1970")
         race_date (date): Date of the race
         discipline (Discipline): Race discipline
-        points (Optional[float]): FIS points earned
-        rank (Optional[int]): Race finish position
         race_name (Optional[str]): Name of the race
         location (Optional[str]): Race location
+        win_time (Optional[float]): Winner's time in seconds
+        penalty (Optional[float]): Calculated penalty value
+        race_category (Optional[str]): FIS race category
+        total_starters (Optional[int]): Total number of starters
+        total_finishers (Optional[int]): Total number of finishers
+        results (List[RaceResult]): List of race results for this race
+    """
+    __tablename__ = 'races'
+
+    id: Mapped[int] = Column(Integer, primary_key=True)
+    fis_db_id: Mapped[Optional[int]] = Column(Integer)  # FIS race ID
+    race_codex: Mapped[Optional[str]] = Column(String)  # FIS competition codex
+    race_date: Mapped[Date] = Column(Date, nullable=False)
+    discipline: Mapped[Discipline] = Column(Enum(Discipline), nullable=False)
+    race_name: Mapped[Optional[str]] = Column(String)
+    location: Mapped[Optional[str]] = Column(String)
+    win_time: Mapped[Optional[float]] = Column(Float, nullable=True)  # Winner's time in seconds
+    penalty: Mapped[Optional[float]] = Column(Float)  # Calculated penalty value
+    race_category: Mapped[Optional[str]] = Column(String)  # FIS race category
+    total_starters: Mapped[Optional[int]] = Column(Integer, nullable=True)  # Total starters
+    total_finishers: Mapped[Optional[int]] = Column(Integer, nullable=True)  # Total finishers
+    
+    results: Mapped[List["RaceResult"]] = relationship("RaceResult", back_populates="race")
+
+class RaceResult(Base):
+    """Database model representing a single athlete's race result.
+    
+    Attributes:
+        id (int): Primary key
+        race_id (int): Foreign key to Race
+        athlete_id (int): Foreign key to Athlete
+        points (Optional[float]): FIS points earned
+        rank (Optional[int]): Race finish position
+        racer_time (Optional[float]): Racer's time in seconds
+        race_points (Optional[float]): Race points for finish position
+        result (Optional[str]): Letter Result (DNF1, DNS, etc.)
+        race (Race): Related Race object
         athlete (Athlete): Related Athlete object
     """
     __tablename__ = 'race_results'
 
     id: Mapped[int] = Column(Integer, primary_key=True)
+    race_id: Mapped[int] = Column(Integer, ForeignKey('races.id'), nullable=False)
     athlete_id: Mapped[int] = Column(Integer, ForeignKey('athletes.id'), nullable=False)
-    fis_db_id: Mapped[Optional[int]] = Column(Integer)  # FIS race ID
-    race_codex: Mapped[Optional[str]] = Column(String)  # FIS competition codex
-    race_date: Mapped[Date] = Column(Date, nullable=False)
-    discipline: Mapped[Discipline] = Column(Enum(Discipline), nullable=False)
     points: Mapped[Optional[float]] = Column(Float)
     rank: Mapped[Optional[int]] = Column(Integer)
-    race_name: Mapped[Optional[str]] = Column(String)
-    location: Mapped[Optional[str]] = Column(String)
-    win_time: Mapped[Optional[float]] = Column(Float, nullable=True)  # Winner's time in seconds
     racer_time: Mapped[Optional[float]] = Column(Float, nullable=True)  # Racer's time in seconds
-    penalty: Mapped[Optional[float]] = Column(Float)  # Calculated penalty value
     race_points: Mapped[Optional[float]] = Column(Float)  # Race points
-    race_category: Mapped[Optional[str]] = Column(String)  # FIS race category
-    total_starters: Mapped[Optional[int]] = Column(Integer, nullable=True)  # Total starters
-    total_finishers: Mapped[Optional[int]] = Column(Integer, nullable=True)  # Total finishers
     result: Mapped[Optional[str]] = Column(String, nullable=True)  # Letter Result (DNF1, DNS, etc.)
     
+    race: Mapped["Race"] = relationship("Race", back_populates="results")
     athlete: Mapped["Athlete"] = relationship("Athlete", back_populates="results")
 
 class PointsList(Base):
