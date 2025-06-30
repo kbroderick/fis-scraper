@@ -85,6 +85,7 @@ class Race(Base):
     discipline: Mapped[Discipline] = Column(Enum(Discipline), nullable=False)
     race_name: Mapped[Optional[str]] = Column(String)
     location: Mapped[Optional[str]] = Column(String)
+    nation: Mapped[Optional[str]] = Column(String)
     win_time: Mapped[Optional[float]] = Column(Float, nullable=True)  # Winner's time in seconds
     penalty: Mapped[Optional[float]] = Column(Float)  # Calculated penalty value
     race_category: Mapped[Optional[str]] = Column(String)  # FIS race category
