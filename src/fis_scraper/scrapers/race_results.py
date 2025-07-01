@@ -89,60 +89,6 @@ class RaceResultsScraper:
         if match:
             return int(match.group(1))
         return None
-
-    def discover_races(self, 
-                      start_date: Optional[date] = None,
-                      end_date: Optional[date] = None,
-                      discipline: Optional[Discipline] = None,
-                      gender: Optional[Gender] = None,
-                      race_category: Optional[str] = None) -> List[Dict[str, Any]]:
-        """AI-generated and BROKEN.
-        Need to decide fix vs discard.
-        Discover available races based on filters.
-        
-        Args:
-            start_date: Start date for race discovery
-            end_date: End date for race discovery
-            discipline: Filter by specific discipline
-            gender: Filter by gender
-            race_category: Filter by race category (WC, EC, FIS, etc.)
-            
-        Returns:
-            List[Dict[str, Any]]: List of race information dictionaries
-        """
-        races = []
-        
-        # Build search parameters
-        params = {
-            'sectorcode': 'AL',
-            'limit': 1000
-        }
-        
-        if start_date:
-            params['date_from'] = start_date.strftime('%d.%m.%Y')
-        if end_date:
-            params['date_to'] = end_date.strftime('%d.%m.%Y')
-        if discipline:
-            params['discipline'] = discipline.value
-        if gender:
-            params['gender'] = gender.value
-                  
-        try:
-            response = requests.get(self.RESULTS_URL, params=params)
-            response.raise_for_status()
-            
-            soup = BeautifulSoup(response.text, 'html.parser')
-            race_links = soup.find_all('a', href=re.compile(r'raceid='))
-            
-            for link in race_links:
-                race_info = self._parse_race_link(link)
-                if race_info and self._matches_filters(race_info, discipline, gender, race_category):
-                    races.append(race_info)
-                    
-        except requests.RequestException as e:
-            logger.error(f"Error discovering races: {e}")
-            
-        return races
     
     def _parse_race_link(self, link: Tag) -> Optional[Dict[str, Any]]:
         """Parse race information from a race link as it appears on per-
@@ -197,27 +143,6 @@ class RaceResultsScraper:
             logger.error(f"Error parsing race link: {e}")
             return None
     
-    def _matches_filters(self, 
-                        race_info: Dict[str, Any],
-                        discipline: Optional[Discipline] = None,
-                        gender: Optional[Gender] = None,
-                        race_category: Optional[str] = None) -> bool:
-        """Check if race matches the specified filters.
-        
-        Args:
-            race_info: Race information dictionary
-            discipline: Discipline filter
-            gender: Gender filter
-            race_category: Race category filter
-            
-        Returns:
-            bool: True if race matches all filters
-        """
-        if discipline and race_info.get('discipline') != discipline:
-            return False
-        # Additional filter logic can be added here
-        return True
-    
     def _get_points_list_for_date(self, race_date: date) -> Optional[PointsList]:
         """Return a points list valid for the given date, or None."""
         return self.session.query(PointsList).filter(
@@ -247,14 +172,15 @@ class RaceResultsScraper:
             return self._get_points_list_for_date(race_date)
         return None
     
-    def scrape_race_results(self, race_id: int) -> List[Dict[str, Any]]:
-        """Scrape complete results for a specific race using the real FIS HTML structure.
+    def scrape_race_results(self, race_id: int) -> tuple[Dict[str, Any], List[Dict[str, Any]]]:
+        """Scrape complete results for a specific race.
         
         Args:
             race_id: FIS race ID
         
         Returns:
-            List[Dict[str, Any]]: List of racer results
+            Tuple[Dict[str, Any], List[Dict[str, Any]]]: Race header
+                info and list of racer results
         """
         results: List[Dict[str, Any]] = []
         try:
@@ -264,31 +190,37 @@ class RaceResultsScraper:
             response.raise_for_status()
             soup = BeautifulSoup(response.text, 'html.parser')
 
-            # Only support real FIS HTML structure
+            # NOTE: fis_results_div contains only finishers; its sibling
+            #       DIVs contain non-finish results (DNF, DNS, etc.)
             fis_results_div = soup.find('div', id='events-info-results', class_='table__body')
             if not fis_results_div:
                 logger.warning(f"No results table found for race {race_id}")
                 return results
             rows = fis_results_div.find_all('a', class_='table-row')
             race_info = self._parse_fis_race_header(soup)
+            winner_info = self._get_winner_info(rows[0], race_id)
+            race_info.update(winner_info)
             if race_info.get('race_date'):
                 points_list = self._ensure_points_list_for_date(race_info['race_date'])
                 if not points_list:
                     logger.error(f"Cannot scrape race {race_id}: No valid points list for date {race_info['race_date']}")
                     return results
+
             for row in rows:
-                result = self._parse_fis_table_row(row, race_info, race_id)
+                result = self._parse_fis_table_row(row, race_id)
                 if result:
                     results.append(result)
             if results:
-                total_starters = self._calculate_total_starters(results)
-                total_finishers = self._calculate_total_finishers(results)
-                for result in results:
-                    result['total_starters'] = total_starters
-                    result['total_finishers'] = total_finishers
+                race_info['total_finishers'] = len(results)
+
+            non_finishers = self._get_non_finishers(fis_results_div.parent, race_id)
+            results.extend(non_finishers)
+
+            race_info['total_starters'] = self._calculate_total_starters(results)
+
         except requests.RequestException as e:
             logger.error(f"Error scraping race {race_id}: {e}")
-        return results
+        return race_info, results
 
     def _parse_fis_race_header(self, soup: BeautifulSoup) -> Dict[str, Any]:
         """Parse race header information from real FIS HTML structure.
@@ -354,16 +286,17 @@ class RaceResultsScraper:
         if location_element:
             location_text = location_element.get_text(strip=True)
             # Extract location from text like "Aspen / Highlands (USA)" or "Sugarloaf (USA)"
-            location_match = re.search(r"(.+?)\s*\([A-Z]{3}\)", location_text)
+            location_match = re.search(r"(.+?)\s*\(([A-Z]{3})\)", location_text)
             if location_match:
                 race_info['location'] = location_match.group(1).strip()
+                race_info['nation'] = location_match.group(2).strip()
         
         # Parse course details
         course_details = self._parse_course_details(soup)
         race_info.update(course_details)
         
         return race_info
-
+    
     def _parse_course_details(self, soup: BeautifulSoup) -> Dict[str, Any]:
         """Parse course details from the FIS HTML structure.
         
@@ -445,16 +378,25 @@ class RaceResultsScraper:
                                 course_info['turning_gates'] = int(value)
         return course_info
 
-    def _parse_fis_table_row(self, row: Tag, race_info: Dict[str, Any], race_id: int) -> Optional[Dict[str, Any]]:
-        """Parse a single FIS result row from <a class="table-row">, supporting real FIS HTML structure.
+    def _parse_fis_table_row(self, row: Tag, race_id: int, result_status: Optional[str] = None) -> Optional[Dict[str, Any]]:
+        """Parse a single FIS result row from <a class="table-row">.
         
         Args:
             row: BeautifulSoup Tag for the row
-            race_info: Race header info
             race_id: FIS race ID
         
         Returns:
-            Optional[Dict[str, Any]]: Parsed result data
+            Optional[Dict[str, Any]]: Parsed result data--
+                'rank': rank (or None)
+                'athlete_name': athlete_name (SURNAME Firstname)
+                'athlete_fis_db_id': athlete_fis_db_id,
+                'fis_db_id': race_id,  # Store the race ID here
+                'nation': nation of athlete (3-letter code eg. USA, CRO)
+                'run1_time': float time for 1st run, seconds (or None)
+                'run2_time': float time for 2nd run, seconds (or None)
+                'racer_time': float race time, seconds (or None)
+                'points': FIS points result for racer (or None)
+                'result': result_status (DNF1, DNF2, etc or None)
         """
         try:
             # Find the outer container: <div class='g-row container'>
@@ -487,56 +429,40 @@ class RaceResultsScraper:
                     rank = int(rank_text)
             # Name
             athlete_name = None
-            for d in divs:
-                if 'g-lg-6' in d.get('class', []) and 'bold' in d.get('class', []):
-                    athlete_name = d.get_text(strip=True)
-                    break
+            name_divs = row.select('div.justify-left.bold')
+            if name_divs:
+                athlete_name = name_divs[0].get_text(strip=True)
             # Nation
             nation = None
-            for d in divs:
-                nation_span = d.find('span', class_='country__name-short')
-                if nation_span:
-                    nation = nation_span.get_text(strip=True)
-                    break
+            nation_span = row.select_one('span.country__name-short')
+            if nation_span:
+                nation = nation_span.get_text(strip=True)
             # FIS DB ID (athlete's ID)
-            href = row.get('href', '')
             athlete_fis_db_id = None
-            import re
+            href = row.get('href', '')
             m = re.search(r'competitorid=(\d+)', href)
             if m:
                 athlete_fis_db_id = int(m.group(1))
-            # Times: look for all divs with class justify-right bold hidden-xs
-            time_divs = [d for d in divs if 'justify-right' in d.get('class', []) and 'bold' in d.get('class', []) and 'hidden-xs' in d.get('class', [])]
-            run1_time = self._parse_time(time_divs[0].get_text(strip=True)) if len(time_divs) > 0 else None
-            run2_time = self._parse_time(time_divs[1].get_text(strip=True)) if len(time_divs) > 1 else None
-            # Win time (total time): blue bold
-            win_time = None
-            for d in divs:
-                if 'justify-right' in d.get('class', []) and 'blue' in d.get('class', []) and 'bold' in d.get('class', []) and 'hidden-sm' in d.get('class', []) and 'hidden-xs' in d.get('class', []):
-                    win_time = self._parse_time(d.get_text(strip=True))
-                    break
-            # Penalty (FIS Points): find the correct justify-right div (not bold, not gray, not hidden-xs)
-            penalty = None
-            for d in divs:
-                classes = d.get('class', [])
-                if (
-                    'justify-right' in classes
-                    and 'bold' not in classes
-                    and 'gray' not in classes
-                    and 'hidden-xs' not in classes
-                ):
-                    penalty_text = d.get_text(strip=True)
-                    if self._is_float(penalty_text):
-                        penalty = float(penalty_text)
-                        break
-            # Compose racer_time for statistics
-            racer_time = None
-            if win_time is not None:
-                racer_time = win_time
-            elif run1_time is not None and run2_time is not None:
-                racer_time = run1_time + run2_time
-            elif run1_time is not None:
-                racer_time = run1_time
+
+            # Times: look for individual run times and combined time
+            time_divs = row.select('div.justify-right.bold.hidden-xs')
+            if len(time_divs) > 0:
+                run1_time = self._parse_time(time_divs[0].get_text(strip=True))
+                racer_time = self._parse_time(time_divs[-1].get_text(strip=True))
+            else:
+                run1_time = None
+                racer_time = None
+            if len(time_divs) > 1:
+                run2_time = self._parse_time(time_divs[1].get_text(strip=True))
+            else:
+                run2_time = None
+
+            points = None
+            if not result_status:
+                points_div = row.find('div', class_="g-lg-2 g-md-2 g-sm-2 g-xs-3 justify-right")
+                if points_div and self._is_float(points_div.get_text(strip=True)):
+                    points = float(points_div.get_text(strip=True))
+
             result = {
                 'rank': rank,
                 'athlete_name': athlete_name,
@@ -545,167 +471,75 @@ class RaceResultsScraper:
                 'nation': nation,
                 'run1_time': run1_time,
                 'run2_time': run2_time,
-                'win_time': win_time,
-                'penalty': penalty,
                 'racer_time': racer_time,
-                **race_info
+                'points': points,
+                'result': result_status
             }
             return result
         except Exception as e:
             logger.error(f"Error parsing FIS table row: {e}")
             return None
-    
-    def _parse_race_header(self, soup: BeautifulSoup) -> Dict[str, Any]:
-        """Parse race header information.
+        
+    def _get_non_finishers(self, soup: BeautifulSoup, race_id: int) -> List[Dict[str, Any]]:
+        """
+        Returns non-finishing racers listed as participants in given race.
+        
+        Args:
+            soup: BeautifulSoup Tag containing all div.table__body elets
+            race_id: FIS race ID
+        
+        Returns:
+            List[Dict[str, Any]]: List of non-finishing racers
+        """
+        non_finishers = []
+        for div in soup.find_all('div', class_='table__body'):
+            if div.get('id') == 'events-info-results':
+                continue
+            status = self._get_result_status(div.find_previous_sibling().get_text(strip=True))
+            for row in div.find_all('a', class_='table-row'):
+                result = self._parse_fis_table_row(row, race_id, result_status = status)
+                if result:
+                    non_finishers.append(result)
+        return non_finishers
+
+    def _get_result_status(self, text: str) -> Optional[str]:
+        """
+        Get result status from text.
+        Args:
+            text: Text to parse from results, eg "Disqualified 1st Run"
+        
+        Returns:
+            Optional[str]: Result status, eg "DSQ1", "DNF2", "DNS2"
+        """
+        run = ""
+        text = text.lower()
+        if "2nd run" in text:
+            run = 2
+        elif "1st run" in text:
+            run = 1
+        
+        if 'disqualified' in text:
+            return f"DSQ{run}"
+        elif 'did not finish' in text:
+            return f"DNF{run}"
+        elif 'did not start' in text:
+            return f"DNS{run}"
+        return None
+
+    def _get_winner_info(self, row: Tag, race_id: int) -> Dict[str, Any]:
+        """
+        Get winner information from first row of results table.
         
         Args:
             soup: BeautifulSoup object of race page
-            
+        
         Returns:
-            Dict[str, Any]: Race header information
+            Dict[str, Any]: Winner information--win_time, penalty
         """
-        race_info = {}
-        
-        # Extract race name
-        title_element = soup.find('h1', class_='race-title')
-        if title_element:
-            race_info['race_name'] = title_element.get_text(strip=True)
-        
-        # Extract race date
-        date_element = soup.find('div', class_='race-date')
-        if date_element:
-            try:
-                date_str = date_element.get_text(strip=True)
-                race_info['race_date'] = datetime.strptime(date_str, '%d.%m.%Y').date()
-            except ValueError:
-                pass
-        
-        # Extract location
-        location_element = soup.find('div', class_='race-location')
-        if location_element:
-            race_info['location'] = location_element.get_text(strip=True)
-        
-        # Extract discipline
-        discipline_element = soup.find('div', class_='race-discipline')
-        if discipline_element:
-            discipline_str = discipline_element.get_text(strip=True)
-            race_info['discipline'] = self._parse_discipline(discipline_str)
-        
-        # Extract race category from event header subtitle
-        category_element = soup.find('div', class_='event-header__subtitle')
-        if category_element:
-            race_info['race_category'] = category_element.get_text(strip=True)
-        
-        return race_info
-    
-    def _parse_result_row(self, row: Tag, race_info: Dict[str, Any]) -> Optional[Dict[str, Any]]:
-        """Parse a single result row.
-        
-        Args:
-            row: BeautifulSoup Tag containing result row
-            race_info: Race header information
-            
-        Returns:
-            Optional[Dict[str, Any]]: Parsed result data
-        """
-        try:
-            cells = row.find_all('td')
-            if len(cells) < 6:  # Minimum expected columns
-                return None
-            
-            # Parse rank/position
-            rank_cell = cells[0]
-            rank_text = rank_cell.get_text(strip=True)
-            
-            # Handle DNF, DNS, DSQ, etc.
-            result = None
-            rank = None
-            if rank_text.isdigit():
-                rank = int(rank_text)
-            else:
-                result = rank_text
-                rank = None
-            
-            # Parse athlete information
-            athlete_cell = cells[1]
-            athlete_link = athlete_cell.find('a')
-            if not athlete_link:
-                return None
-                
-            athlete_name = athlete_link.get_text(strip=True)
-            athlete_url = athlete_link.get('href', '')
-            
-            # Extract FIS DB ID from athlete URL
-            fis_db_id = None
-            if 'competitorid=' in athlete_url:
-                fis_db_id_match = re.search(r'competitorid=(\d+)', athlete_url)
-                if fis_db_id_match:
-                    fis_db_id = int(fis_db_id_match.group(1))
-            
-            # Parse nation
-            nation_cell = cells[2]
-            nation = nation_cell.get_text(strip=True)
-            
-            # Parse times (handle both single and two-run races)
-            run1_time = None
-            run2_time = None
-            racer_time = None
-            
-            if len(cells) >= 4:
-                # Try to parse individual run times
-                run1_cell = cells[3]
-                run1_time = self._parse_time(run1_cell.get_text(strip=True))
-                
-                if len(cells) >= 5:
-                    run2_cell = cells[4]
-                    run2_time = self._parse_time(run2_cell.get_text(strip=True))
-                    
-                    # Final time is the sum of run times for two-run races
-                    if run1_time and run2_time:
-                        racer_time = run1_time + run2_time
-                    elif run1_time:
-                        racer_time = run1_time
-                else:
-                    # Single run race
-                    racer_time = run1_time
-            
-            # Parse winner's time (if available)
-            winner_time_cell = cells[-2] if len(cells) > 4 else None
-            win_time = None
-            if winner_time_cell:
-                win_time = self._parse_time(winner_time_cell.get_text(strip=True))
-            
-            # Parse points
-            points_cell = cells[-1] if len(cells) > 5 else None
-            points = None
-            if points_cell:
-                points_text = points_cell.get_text(strip=True)
-                if self._is_float(points_text):
-                    points = float(points_text)
-            
-            # Parse result code with run information
-            run_data = {'run1_time': run1_time, 'run2_time': run2_time}
-            parsed_result = self._parse_result_code(result, run_data)
-            
-            return {
-                'rank': rank,
-                'result': parsed_result,
-                'athlete_name': athlete_name,
-                'fis_db_id': fis_db_id,
-                'nation': nation,
-                'racer_time': racer_time,
-                'run1_time': run1_time,
-                'run2_time': run2_time,
-                'win_time': win_time,
-                'points': points,
-                'race_points': None,  # Will be parsed from results if available
-                **race_info
-            }
-            
-        except (ValueError, AttributeError, IndexError) as e:
-            logger.error(f"Error parsing result row: {e}")
-            return None
-    
+        winner_info = self._parse_fis_table_row(row, race_id)
+        return { 'win_time': winner_info['racer_time'],
+                 'penalty': winner_info['points'] }
+
     def _calculate_total_starters(self, results: List[Dict[str, Any]]) -> int:
         """Calculate total starters based on FIS rules.
         
@@ -715,77 +549,13 @@ class RaceResultsScraper:
         Returns:
             int: Total number of starters
         """
-        starters = 0
-        
+        starters = len(results)
         for result in results:
-            # Count if they have any time recorded
-            if result.get('racer_time') or result.get('run1_time') or result.get('run2_time'):
-                starters += 1
-            # Count if they have DNF/DSQ results
-            elif result.get('result') in ['DNF1', 'DNF2', 'DSQ1', 'DSQ2']:
-                starters += 1
-            # Count DNS2 only if they finished first run
-            elif result.get('result') == 'DNS2' and result.get('run1_time'):
-                starters += 1
+            if result['result'] == 'DNS1':
+                starters -= 1
         
         return starters
-    
-    def _calculate_total_finishers(self, results: List[Dict[str, Any]]) -> int:
-        """Calculate total finishers (racers with final times).
-        
-        Args:
-            results: List of race result dictionaries
-            
-        Returns:
-            int: Total number of finishers
-        """
-        return sum(1 for result in results if result.get('racer_time') is not None)
-    
-    def _parse_result_code(self, result_text: str, run_data: Dict[str, Any]) -> Optional[str]:
-        """Parse result text into standardized result codes.
-        
-        Args:
-            result_text: Raw result text from the page
-            run_data: Dictionary containing run time information
-            
-        Returns:
-            Optional[str]: Standardized result code
-        """
-        if not result_text:
-            return None
-        
-        result_text = result_text.upper().strip()
-        
-        # Check if this is a two-run race (has run1_time or run2_time fields)
-        is_two_run_race = 'run1_time' in run_data or 'run2_time' in run_data
-        
-        if is_two_run_race:
-            if 'DNS' in result_text:
-                if run_data.get('run1_time') is not None:
-                    return 'DNS2'  # Did not start second run
-                else:
-                    return 'DNS1'  # Did not start first run
-            elif 'DNF' in result_text:
-                if run_data.get('run1_time') is not None and run_data.get('run2_time') is None:
-                    return 'DNF2'  # Did not finish second run
-                else:
-                    return 'DNF1'  # Did not finish first run
-            elif 'DSQ' in result_text:
-                if run_data.get('run1_time') is not None and run_data.get('run2_time') is None:
-                    return 'DSQ2'  # Disqualified second run
-                else:
-                    return 'DSQ1'  # Disqualified first run
-        
-        # Handle single run races
-        if 'DNS' in result_text:
-            return 'DNS'
-        elif 'DNF' in result_text:
-            return 'DNF'
-        elif 'DSQ' in result_text:
-            return 'DSQ'
-        
-        return None
-    
+      
     def _parse_time(self, time_str: str) -> Optional[float]:
         """Parse time string to float seconds.
         
@@ -881,51 +651,7 @@ class RaceResultsScraper:
             result_data.get('athlete_name'),
             result_data.get('nation')
         )
-    
-    def _create_athlete_if_needed(self, result_data: Dict[str, Any]) -> Optional[Athlete]:
-        """Create athlete record if needed (should be rare since points lists create athletes).
         
-        Args:
-            result_data: Race result data containing athlete information
-            
-        Returns:
-            Optional[Athlete]: Athlete object if created, None otherwise
-        """
-        athlete_fis_db_id = result_data.get('athlete_fis_db_id')
-        athlete_name = result_data.get('athlete_name')
-        nation = result_data.get('nation')
-        
-        # Only create if we have sufficient information
-        if athlete_fis_db_id and athlete_name and nation:
-            try:
-                name_parts = athlete_name.split()
-                if len(name_parts) >= 2:
-                    first_name = name_parts[0]
-                    last_name = ' '.join(name_parts[1:])
-                else:
-                    first_name = athlete_name
-                    last_name = ''
-                
-                athlete = Athlete(
-                    fis_id=0,  # Will need to be updated
-                    fis_db_id=athlete_fis_db_id,
-                    last_name=last_name,
-                    first_name=first_name,
-                    nation_code=nation[:3].upper(),
-                    gender=Gender.M  # Default, would need to be determined
-                )
-                
-                self.session.add(athlete)
-                self.session.flush()  # Get the ID
-                logger.warning(f"Created missing athlete: {athlete_name} (FIS DB ID: {athlete_fis_db_id})")
-                return athlete
-                
-            except Exception as e:
-                logger.error(f"Error creating athlete: {e}")
-                return None
-        
-        return None
-    
     def _get_or_create_race(self, result_data: Dict[str, Any]) -> Optional[Race]:
         """Get or create a Race record from result data.
         
@@ -1023,7 +749,6 @@ class RaceResultsScraper:
                     points=result_data.get('points'),
                     rank=result_data.get('rank'),
                     racer_time=result_data.get('racer_time'),
-                    race_points=result_data.get('race_points'),
                     result=result_data.get('result')
                 )
                 

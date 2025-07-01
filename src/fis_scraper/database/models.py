@@ -123,8 +123,10 @@ class RaceResult(Base):
     points: Mapped[Optional[float]] = Column(Float)
     rank: Mapped[Optional[int]] = Column(Integer)
     racer_time: Mapped[Optional[float]] = Column(Float, nullable=True)  # Racer's time in seconds
-    race_points: Mapped[Optional[float]] = Column(Float)  # Race points
+    points: Mapped[Optional[float]] = Column(Float)  # Race points
     result: Mapped[Optional[str]] = Column(String, nullable=True)  # Letter Result (DNF1, DNS, etc.)
+    run1_time: Mapped[Optional[float]] = Column(Float, nullable=True)  # First run time in seconds
+    run2_time: Mapped[Optional[float]] = Column(Float, nullable=True)  # Second run time in seconds
     
     race: Mapped["Race"] = relationship("Race", back_populates="results")
     athlete: Mapped["Athlete"] = relationship("Athlete", back_populates="results")

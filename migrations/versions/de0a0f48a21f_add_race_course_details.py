@@ -27,6 +27,9 @@ def upgrade() -> None:
     op.add_column('races', sa.Column('gates', sa.Integer(), nullable=True))
     op.add_column('races', sa.Column('turning_gates', sa.Integer(), nullable=True))
     op.add_column('races', sa.Column('homologation', sa.String(), nullable=True))
+    op.drop_column('race_results', 'race_points')
+    op.add_column('race_results', sa.Column('run1_time', sa.Float(), nullable=True))
+    op.add_column('race_results', sa.Column('run2_time', sa.Float(), nullable=True))
     # ### end Alembic commands ###
 
 
@@ -39,4 +42,7 @@ def downgrade() -> None:
     op.drop_column('races', 'finish_altitude')
     op.drop_column('races', 'start_altitude')
     op.drop_column('races', 'nation')
+    op.add_column('race_results', sa.Column('race_points', sa.Float(), nullable=True))
+    op.drop_column('race_results', 'run2_time')
+    op.drop_column('race_results', 'run1_time')
     # ### end Alembic commands ###
