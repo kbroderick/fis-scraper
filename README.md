@@ -48,24 +48,35 @@ This Python application scrapes and analyzes FIS (International Ski Federation) 
    
    Discover and scrape race results:
    ```bash
-   # Discover races in a date range
-   python main.py races --start-date 01.01.2024 --end-date 31.01.2024 --discover-only
-   
-   # Scrape all races in a date range
-   python main.py races --start-date 01.01.2024 --end-date 31.01.2024
-   
+   # Discover races in current season
+   python main.py races  --discover-only
+      
    # Scrape specific race by ID
    python main.py races --race-id 12345
-   
-   # Filter by discipline
-   python main.py races --start-date 01.01.2024 --end-date 31.01.2024 --discipline SL
+   ```
+
+   **Important:** To run the race results scraper, you must use the `-m` flag to run it as a module. This is required because the code uses relative imports, which do not work if you run the script directly.
+
+   **Example:**
+   ```sh
+   python -m src.fis_scraper.scrapers.race_results --race-category FIS --season 2025 --discover-only
+   ```
+
+   **Command Line Arguments**
+   - `--race-category`  (e.g., FIS, WC, EC, UNI, NC, CIT, CUP)
+   - `--season`         (e.g., 2025)
+   - `--race-id`        (scrape a specific race by ID)
+   - `--discover-only`  (only discover races, do not scrape results)
+   - `--verbose`        (enable verbose logging)
+
+   See help for all options:
+   ```sh
+   python -m src.fis_scraper.scrapers.race_results --help
    ```
 
    TODO:
-      - refactor--Race table in addition to RaceResults, limit RaceResults
-         to truly per-racer data and Race table has codex, location,
-         penalty, etc
-      - add ability to ingest race results via scraping
+      - add ability to ingest race results via scraping, add testing on methods that
+      actually save to DB
       - allow for CSV input of roster for eval
       - create per-athlete analysis (points, rank, and results over time)
       - create per-roster analysis (points, rank and result over time; particular   attention to delta in rank between selection and graduation)

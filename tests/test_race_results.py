@@ -8,7 +8,7 @@ from typing import Dict, List, Any, Optional
 
 from src.fis_scraper.database.models import Athlete, RaceResult, Discipline, Gender, PointsList, Race
 from src.fis_scraper.scrapers.fis_constants import FisCategory, BASE_URL, DATA_URL
-from src.fis_scraper.scrapers.race_results import RaceResultsScraper
+from src.fis_scraper.scrapers.race_results_scraper import RaceResultsScraper
 
 
 class TestRaceResultsScraper:
@@ -486,6 +486,13 @@ class TestRaceResultsScraperHelpers:
         """Test parsing race ID from link."""
         assert scraper._parse_race_id_from_link('https://www.fis-ski.com/DB/general/results.html?sectorcode=AL&raceid=126056') == 126056
 
+    def test_get_current_season(self, scraper: RaceResultsScraper):
+        """Test getting current season."""
+        # TODO: mock the date to 2025-01-01
+        assert scraper.get_current_season() == 2025
+        # TODO: mock date to 2024-07-01
+        assert scraper.get_current_season() == 2025
+        # TODO: mock date to 2024-06-30
 
 class TestPointsListAutoIngestion:
     """Test points list auto-ingestion functionality."""

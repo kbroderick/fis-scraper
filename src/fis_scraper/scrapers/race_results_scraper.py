@@ -13,7 +13,7 @@ from sqlalchemy.exc import IntegrityError
 from .fis_constants import DATA_URL, FisSector, FisCategory
 from ..database.connection import get_session
 from ..database.models import Athlete, RaceResult, Discipline, Gender, PointsList, Race
-from .points_list import PointsListScraper
+from .points_list_scraper import PointsListScraper
 
 # Configure logging
 logging.basicConfig(
@@ -58,7 +58,8 @@ class RaceResultsScraper:
         """
         params = {
             'category': category,
-            'season': season
+            'season': season,
+            'sectorcode': 'AL'
         }
         response = requests.get(self.CATEGORY_URL, params=params)
         response.raise_for_status()
@@ -172,6 +173,10 @@ class RaceResultsScraper:
             return self._get_points_list_for_date(race_date)
         return None
     
+    def _race_link_from_id(self, race_id: int) -> str:
+        """Get the race link from the race ID."""
+        return f"{DATA_URL}/alpine-skiing/results.html?raceid={race_id}"
+
     def scrape_race_results(self, race_id: int) -> tuple[Dict[str, Any], List[Dict[str, Any]]]:
         """Scrape complete results for a specific race.
         
@@ -183,40 +188,42 @@ class RaceResultsScraper:
                 info and list of racer results
         """
         results: List[Dict[str, Any]] = []
+        race_info: Dict[str, Any] = {}
+        
         try:
             # Get race results page
-            race_url = f"{DATA_URL}/alpine-skiing/results.html?raceid={race_id}"
-            response = requests.get(race_url)
+            response = requests.get(self._race_link_from_id(race_id))
             response.raise_for_status()
             soup = BeautifulSoup(response.text, 'html.parser')
+
+            race_info = self._parse_fis_race_header(soup)
 
             # NOTE: fis_results_div contains only finishers; its sibling
             #       DIVs contain non-finish results (DNF, DNS, etc.)
             fis_results_div = soup.find('div', id='events-info-results', class_='table__body')
             if not fis_results_div:
                 logger.warning(f"No results table found for race {race_id}")
-                return results
+                return race_info, results
             rows = fis_results_div.find_all('a', class_='table-row')
-            race_info = self._parse_fis_race_header(soup)
-            winner_info = self._get_winner_info(rows[0], race_id)
-            race_info.update(winner_info)
             if race_info.get('race_date'):
                 points_list = self._ensure_points_list_for_date(race_info['race_date'])
                 if not points_list:
                     logger.error(f"Cannot scrape race {race_id}: No valid points list for date {race_info['race_date']}")
-                    return results
+                    return race_info, results
 
             for row in rows:
                 result = self._parse_fis_table_row(row, race_id)
                 if result:
                     results.append(result)
-            if results:
+            if results: # if we have results, we can calculate finishers and starters
+                winner_info = self._get_winner_info(rows[0], race_id)
+                race_info.update(winner_info)
                 race_info['total_finishers'] = len(results)
-
-            non_finishers = self._get_non_finishers(fis_results_div.parent, race_id)
-            results.extend(non_finishers)
-
-            race_info['total_starters'] = self._calculate_total_starters(results)
+                non_finishers = self._get_non_finishers(fis_results_div.parent, race_id)
+                race_info['total_starters'] = self._calculate_total_starters(results)
+                results.extend(non_finishers)
+        
+            return race_info, results
 
         except requests.RequestException as e:
             logger.error(f"Error scraping race {race_id}: {e}")
@@ -652,18 +659,18 @@ class RaceResultsScraper:
             result_data.get('nation')
         )
         
-    def _get_or_create_race(self, result_data: Dict[str, Any]) -> Optional[Race]:
+    def _get_or_create_race(self, race_info: Dict[str, Any]) -> Optional[Race]:
         """Get or create a Race record from result data.
         
         Args:
-            result_data: Race result data containing race information
+            race_info: Race result data containing race information
             
         Returns:
             Optional[Race]: Race object if found or created, None otherwise
         """
-        fis_db_id = result_data.get('fis_db_id')
-        race_date = result_data.get('race_date')
-        discipline = result_data.get('discipline')
+        fis_db_id = race_info.get('fis_db_id')
+        race_date = race_info.get('race_date')
+        discipline = race_info.get('discipline')
         
         if not all([fis_db_id, race_date, discipline]):
             logger.error(f"Missing required race data: fis_db_id={fis_db_id}, race_date={race_date}, discipline={discipline}")
@@ -683,27 +690,27 @@ class RaceResultsScraper:
         try:
             race = Race(
                 fis_db_id=fis_db_id,
-                race_codex=result_data.get('race_codex'),
+                race_codex=race_info.get('race_codex'),
                 race_date=race_date,
                 discipline=discipline,
-                race_name=result_data.get('race_name'),
-                location=result_data.get('location'),
-                win_time=result_data.get('win_time'),
-                penalty=result_data.get('penalty'),
-                race_category=result_data.get('race_category'),
-                total_starters=result_data.get('total_starters'),
-                total_finishers=result_data.get('total_finishers'),
-                start_altitude=result_data.get('start_altitude'),
-                finish_altitude=result_data.get('finish_altitude'),
-                length=result_data.get('length'),
-                gates=result_data.get('gates'),
-                turning_gates=result_data.get('turning_gates'),
-                homologation=result_data.get('homologation')
+                race_name=race_info.get('race_name'),
+                location=race_info.get('location'),
+                win_time=race_info.get('win_time'),
+                penalty=race_info.get('penalty'),
+                race_category=race_info.get('race_category'),
+                total_starters=race_info.get('total_starters'),
+                total_finishers=race_info.get('total_finishers'),
+                start_altitude=race_info.get('start_altitude'),
+                finish_altitude=race_info.get('finish_altitude'),
+                length=race_info.get('length'),
+                gates=race_info.get('gates'),
+                turning_gates=race_info.get('turning_gates'),
+                homologation=race_info.get('homologation')
             )
             
             self.session.add(race)
             self.session.flush()  # Get the ID
-            logger.info(f"Created new race: {result_data.get('race_name')} (FIS DB ID: {fis_db_id})")
+            logger.info(f"Created new race: {race_info.get('race_name')} (FIS DB ID: {fis_db_id})")
             return race
             
         except Exception as e:
@@ -771,6 +778,23 @@ class RaceResultsScraper:
             saved_count = 0
             
         return saved_count
+    
+    def get_current_season(self) -> int:
+        """Get the current FIS season; 1 July starts new season."""
+        date = datetime.now()
+        if date.month >= 7:
+            return date.year + 1
+        else:
+            return date.year
+    
+    def record_race(self, race_info: Dict[str, Any], results: List[Dict[str, Any]]) -> int:
+        """Record a race and its results."""
+        race = self._get_or_create_race(race_info)
+        if race:
+            return self.save_race_results(results)
+        else:
+            logger.warning(f"No race found for {race_info.get('race_name')}")
+            return -1
 
 
 def _get_argument_parser() -> argparse.ArgumentParser:
@@ -780,10 +804,9 @@ def _get_argument_parser() -> argparse.ArgumentParser:
         argparse.ArgumentParser: Configured argument parser
     """
     parser = argparse.ArgumentParser(description='Scrape FIS race results')
-    parser.add_argument('--start-date', type=str, help='Start date (DD.MM.YYYY)')
-    parser.add_argument('--end-date', type=str, help='End date (DD.MM.YYYY)')
-    parser.add_argument('--discipline', type=str, choices=['SL', 'GS', 'SG', 'DH', 'AC'],
-                       help='Filter by discipline')
+    parser.add_argument('--race-category', type=str, choices=['WC', 'EC', 'FIS', 'UNI', 'NC', 'CIT', 'CUP'],
+                       help='Filter by race category')
+    parser.add_argument('--season', type=int, help='Season to scrape (e.g., 2025)')
     parser.add_argument('--race-id', type=int, help='Scrape specific race by ID')
     parser.add_argument('--discover-only', action='store_true', 
                        help='Only discover races, don\'t scrape results')
@@ -792,19 +815,15 @@ def _get_argument_parser() -> argparse.ArgumentParser:
     
     return parser
 
-
-def main(start_date: Optional[str] = None,
-         end_date: Optional[str] = None,
-         discipline: Optional[str] = None,
+def main(race_category: Optional[str] = None,
          race_id: Optional[int] = None,
+         season: Optional[int] = None,
          discover_only: bool = False,
          verbose: bool = False) -> None:
     """Main function for race results scraping.
     
     Args:
-        start_date: Start date string (DD.MM.YYYY)
-        end_date: End date string (DD.MM.YYYY)
-        discipline: Discipline filter
+        race_category: Race category filter
         race_id: Specific race ID to scrape
         discover_only: Only discover races, don't scrape results
         verbose: Enable verbose logging
@@ -813,84 +832,63 @@ def main(start_date: Optional[str] = None,
         logging.getLogger().setLevel(logging.DEBUG)
     
     scraper = RaceResultsScraper()
-    
-    # Parse dates
-    parsed_start_date = None
-    parsed_end_date = None
-    
-    if start_date:
-        try:
-            parsed_start_date = datetime.strptime(start_date, '%d.%m.%Y').date()
-        except ValueError:
-            logger.error(f"Invalid start date format: {start_date}")
-            return
-    
-    if end_date:
-        try:
-            parsed_end_date = datetime.strptime(end_date, '%d.%m.%Y').date()
-        except ValueError:
-            logger.error(f"Invalid end date format: {end_date}")
-            return
-    
-    # Parse discipline
-    parsed_discipline = None
-    if discipline:
-        discipline_map = {
-            'SL': Discipline.SL,
-            'GS': Discipline.GS,
-            'SG': Discipline.SG,
-            'DH': Discipline.DH,
-            'AC': Discipline.AC
-        }
-        parsed_discipline = discipline_map.get(discipline)
-    
+
+    if not season:
+        logger.info(f"No season provided, using current (season {scraper.get_current_season()})")
+        season = scraper.get_current_season()
+
+    if race_category:
+        events = scraper.find_events_by_category(race_category, season)
+        for event in events:
+            race_ids = scraper.find_races_by_event(event)
+            for race_id in race_ids:
+                if discover_only:
+                    print(f"Race ID: {race_id}, link: {scraper._race_link_from_id(race_id)}")
+                else:
+                    race_info, results = scraper.scrape_race_results(race_id)
+                    if results:
+                        saved_count = scraper.record_race(race_info, results)
+                        logger.info(f"Saved {saved_count} results for race {race_id}")
+                    else:
+                        logger.warning(f"No results found for race {race_id}")
+        return
+
     if race_id:
         # Scrape specific race
         logger.info(f"Scraping race {race_id}")
-        results = scraper.scrape_race_results(race_id)
-        if results:
-            saved_count = scraper.save_race_results(results)
+        race_info, results = scraper.scrape_race_results(race_id)
+        if race_info and results:
+            saved_count = scraper.record_race(race_info, results)
             logger.info(f"Saved {saved_count} results for race {race_id}")
         else:
             logger.warning(f"No results found for race {race_id}")
     else:
         # Discover and scrape races
-        logger.info("Discovering races...")
-        races = scraper.discover_races(
-            start_date=parsed_start_date,
-            end_date=parsed_end_date,
-            discipline=parsed_discipline
-        )
-        
-        logger.info(f"Found {len(races)} races")
-        
-        if discover_only:
-            for race in races:
-                print(f"Race ID: {race['race_id']}, Date: {race['race_date']}, "
-                      f"Location: {race['location']}, Discipline: {race['discipline']}")
-        else:
-            # Scrape all discovered races
-            total_saved = 0
-            for race in races:
-                logger.info(f"Scraping race {race['race_id']} at {race['location']}")
-                results = scraper.scrape_race_results(race['race_id'])
-                if results:
-                    saved_count = scraper.save_race_results(results)
-                    total_saved += saved_count
-                    logger.info(f"Saved {saved_count} results for race {race['race_id']}")
-            
-            logger.info(f"Total results saved: {total_saved}")
-
+        logger.info(f"Discovering all events for season {season}")
+        events = scraper.find_events_by_season(season)
+        logger.info(f"Found {len(events)} events")
+        for event in events:
+            race_ids = scraper.find_races_by_event(event)
+            logger.info(f"Found {len(race_ids)} races for event ID {event}")
+            for race_id in race_ids:
+                if discover_only:
+                    print(f"Race ID: {race_id}, link: {scraper._race_link_from_id(race_id)}")
+                else:
+                    race_info, results = scraper.scrape_race_results(race_id)
+                    if race_info and results:
+                        saved_count = scraper.record_race(race_info, results)
+                        logger.info(f"Saved {saved_count} results for race {race_id}")
+                    else:
+                        logger.warning(f"No results found for race {race_id}")
 
 if __name__ == "__main__":
     parser = _get_argument_parser()
     args = parser.parse_args()
     
     main(
-        start_date=args.start_date,
-        end_date=args.end_date,
-        discipline=args.discipline,
+        race_category=args.race_category,
         race_id=args.race_id,
+        season=args.season,
         discover_only=args.discover_only,
         verbose=args.verbose
     ) 

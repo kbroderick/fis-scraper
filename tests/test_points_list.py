@@ -15,7 +15,7 @@ from sqlalchemy import select
 
 import src.fis_scraper
 from src.fis_scraper.scrapers.fis_constants import BASE_URL
-from src.fis_scraper.scrapers.points_list import PointsListScraper
+from src.fis_scraper.scrapers.points_list_scraper import PointsListScraper
 from src.fis_scraper.database.models import PointsList, Athlete, AthletePoints, Gender
 
 @pytest.fixture
