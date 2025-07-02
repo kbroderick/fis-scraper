@@ -9,6 +9,7 @@ def main() -> None:
     parser = argparse.ArgumentParser(description='FIS Skiing Data Scraper and Analyzer')
     subparsers = parser.add_subparsers(dest='command', help='Available commands')
     
+    ## TODO: fix this up so it actually works, gets parsers from the scrapers
     # Points list scraper
     points_parser = subparsers.add_parser('points', help='Scrape FIS points lists')
     points_parser.add_argument('--start-date', type=str, help='Start date (DD.MM.YYYY)')

@@ -10,7 +10,7 @@ from bs4 import BeautifulSoup, Tag
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import IntegrityError
 
-from .fis_constants import DATA_URL, FisSector, FisCategory
+from .fis_constants import DATA_URL, BASE_URL, FisSector, FisCategory
 from ..database.connection import get_session
 from ..database.models import Athlete, RaceResult, Discipline, Gender, PointsList, Race
 from .points_list_scraper import PointsListScraper
@@ -31,9 +31,12 @@ class RaceResultsScraper:
     points. Automatically ingests points lists when needed.
     """
     
-    CATEGORY_URL: str = f"{DATA_URL}/fis_events/ajax/calendarfunctions/get_select_category.html"
+    #CATEGORY_URL: str = f"{DATA_URL}//fis_events/ajax/calendarfunctions/get_select_category.html"
+    CALENDAR_URL: str = "https://www.fis-ski.com/DB/alpine-skiing/calendar-results.html"
     RESULTS_URL: str = "https://data.fis-ski.com/alpine-skiing/results.html"
+    #MYSTERIOUSLY_WORKING_URL: str = "https://data.fis-ski.com//fis_events/ajax/calendarfunctions/get_select_category.html?sectorcode=AL"
     
+
     def __init__(self, session: Optional[Session] = None) -> None:
         """Initialize the RaceResultsScraper with a database session (injectable for testing)."""
         self.session: Session = session or get_session()
@@ -57,14 +60,26 @@ class RaceResultsScraper:
             List[str]: List of race (event) URLs
         """
         params = {
-            'category': category,
-            'season': season,
-            'sectorcode': 'AL'
+            'eventselection': '',
+            'place': '',
+            'sectorcode': 'AL',
+            'seasoncode': season,
+            'categorycode': category,
+            'disciplinecode': '',
+            'gendercode': '',
+            'racedate': '',
+            'racecodex': '',
+            'nationcode': '',
+            'seasonmonth': f'X-{season}',
+            'saveselection': '-1',
+            'seasonselection': ''
         }
-        response = requests.get(self.CATEGORY_URL, params=params)
+        logger.info(f"Using category URL: {self.CALENDAR_URL} with params: {params}")
+        response = requests.get(self.CALENDAR_URL, params=params)
         response.raise_for_status()
         soup = BeautifulSoup(response.text, 'html.parser')
-        race_links = soup.find_all('a', {'class': 'pr-1 g-lg-1 g-md-1 g-sm-2 hidden-xs justify-left'})
+        race_links = soup.find_all('a', {'class': 'pl-xs-0_6 pr-xs-0 g-sm-2 g-xs-3 justify-sm-center hidden-md-up bold'})
+        breakpoint()
         return [link.get('href') for link in race_links]
     
     def find_races_by_event(self, event_url: str) -> List[int]:
@@ -175,7 +190,7 @@ class RaceResultsScraper:
     
     def _race_link_from_id(self, race_id: int) -> str:
         """Get the race link from the race ID."""
-        return f"{DATA_URL}/alpine-skiing/results.html?raceid={race_id}"
+        return f"{BASE_URL}/general/results.html?sectorcode=AL&raceid={race_id}"
 
     def scrape_race_results(self, race_id: int) -> tuple[Dict[str, Any], List[Dict[str, Any]]]:
         """Scrape complete results for a specific race.
@@ -190,13 +205,16 @@ class RaceResultsScraper:
         results: List[Dict[str, Any]] = []
         race_info: Dict[str, Any] = {}
         
+        #TODO: verify we don't already have this race in the database
+        #      If we. do, verify that results and course data are 
+        #      already recorded. If not, scrape and record.
         try:
             # Get race results page
             response = requests.get(self._race_link_from_id(race_id))
             response.raise_for_status()
             soup = BeautifulSoup(response.text, 'html.parser')
-
-            race_info = self._parse_fis_race_header(soup)
+            
+            race_info = self._parse_fis_race_header(soup, race_id)
 
             # NOTE: fis_results_div contains only finishers; its sibling
             #       DIVs contain non-finish results (DNF, DNS, etc.)
@@ -223,22 +241,25 @@ class RaceResultsScraper:
                 race_info['total_starters'] = self._calculate_total_starters(results)
                 results.extend(non_finishers)
         
+            logger.debug(f"Scraped {len(results)} results for race {race_id}")
             return race_info, results
 
         except requests.RequestException as e:
             logger.error(f"Error scraping race {race_id}: {e}")
         return race_info, results
 
-    def _parse_fis_race_header(self, soup: BeautifulSoup) -> Dict[str, Any]:
+    def _parse_fis_race_header(self, soup: BeautifulSoup, race_id: int) -> Dict[str, Any]:
         """Parse race header information from real FIS HTML structure.
         
         Args:
             soup: BeautifulSoup object of race page
-        
+            race_id: FIS race ID
         Returns:
             Dict[str, Any]: Race header information
         """
-        race_info: Dict[str, Any] = {}
+        race_info: Dict[str, Any] = {
+            'fis_db_id': race_id
+        }
         
         # Race name and location from <title>
         title = soup.find('title')
@@ -674,6 +695,7 @@ class RaceResultsScraper:
         
         if not all([fis_db_id, race_date, discipline]):
             logger.error(f"Missing required race data: fis_db_id={fis_db_id}, race_date={race_date}, discipline={discipline}")
+            logger.debug(f"Race info: {race_info}")
             return None
         
         # Try to find existing race
@@ -788,7 +810,16 @@ class RaceResultsScraper:
             return date.year
     
     def record_race(self, race_info: Dict[str, Any], results: List[Dict[str, Any]]) -> int:
-        """Record a race and its results."""
+        """
+        Record a race and its results.
+        
+        Args:
+            race_info: Race information dictionary
+            results: List of race result dictionaries
+            
+        Returns:
+            int: Number of results saved
+        """
         race = self._get_or_create_race(race_info)
         if race:
             return self.save_race_results(results)
@@ -804,9 +835,10 @@ def _get_argument_parser() -> argparse.ArgumentParser:
         argparse.ArgumentParser: Configured argument parser
     """
     parser = argparse.ArgumentParser(description='Scrape FIS race results')
-    parser.add_argument('--race-category', type=str, choices=['WC', 'EC', 'FIS', 'UNI', 'NC', 'CIT', 'CUP'],
+    parser.add_argument('--race-category', type=str, choices=[c.value for c in FisCategory],
                        help='Filter by race category')
-    parser.add_argument('--season', type=int, help='Season to scrape (e.g., 2025)')
+    parser.add_argument('--season', type=int,
+                        help='Season to scrape (e.g., 2025); defaults to current season.')
     parser.add_argument('--race-id', type=int, help='Scrape specific race by ID')
     parser.add_argument('--discover-only', action='store_true', 
                        help='Only discover races, don\'t scrape results')

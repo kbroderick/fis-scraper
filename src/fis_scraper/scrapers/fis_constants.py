@@ -3,6 +3,7 @@ from enum import Enum
 
 BASE_URL: str = "https://www.fis-ski.com/DB"
 DATA_URL: str = "https://data.fis-ski.com"
+FIS_URL: str = "https://www.fis-ski.com"
 
 class FisSector(Enum):
     """FIS Sector"""
