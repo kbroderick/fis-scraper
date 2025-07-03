@@ -8,7 +8,7 @@ from unittest.mock import MagicMock
 import requests
 
 from src.fis_scraper.database.models import Gender, Discipline, Athlete
-from src.fis_scraper.scrapers.athlete_results import AthleteResultsScraper
+from src.fis_scraper.scrapers.athlete_results_scraper import AthleteResultsScraper
 
 @pytest.fixture
 def scraper():

@@ -59,7 +59,7 @@ This Python application scrapes and analyzes FIS (International Ski Federation) 
 
    **Example:**
    ```sh
-   python -m src.fis_scraper.scrapers.race_results --race-category FIS --season 2025 --discover-only
+   python -m src.fis_scraper.scrapers.race_results_scraper --race-category FIS --season 2025 --discover-only
    ```
 
    **Command Line Arguments**
@@ -71,10 +71,11 @@ This Python application scrapes and analyzes FIS (International Ski Federation) 
 
    See help for all options:
    ```sh
-   python -m src.fis_scraper.scrapers.race_results --help
+   python -m src.fis_scraper.scrapers.race_results_scraper --help
    ```
 
    TODO:
+      - figure out why nation isn't getting saved to DB
       - add handling for discipline-level sta (status) fields in points list, ingest club data
       - allow for CSV input of roster for eval
       - create per-athlete analysis (points, rank, and results over time)
