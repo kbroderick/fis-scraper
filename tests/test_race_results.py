@@ -407,8 +407,9 @@ class TestRaceResultsScraperDatabase:
         assert race.fis_db_id == 124886
         assert race.race_codex == 1970
         assert race.total_starters == len(results)
+        assert race.nation == 'USA'
 
-        count = scraper.save_race_results(race, results)
+        count = scraper._save_race_results(race, results)
         assert count == len(results)
 
         assert scraper.session.query(RaceResult).filter_by(race_id=race.id).count() == len(results)

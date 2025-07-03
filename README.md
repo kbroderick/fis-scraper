@@ -75,6 +75,7 @@ This Python application scrapes and analyzes FIS (International Ski Federation) 
    ```
 
    TODO:
+      - add handling for discipline-level sta (status) fields in points list, ingest club data
       - allow for CSV input of roster for eval
       - create per-athlete analysis (points, rank, and results over time)
       - create per-roster analysis (points, rank and result over time; particular   attention to delta in rank between selection and graduation)
@@ -161,7 +162,7 @@ The race results scraper now stores the FIS race ID (`fis_db_id`) for each resul
 
 Run the test suite:
 ```bash
-dropdb fis_test_data ; createdb fis_data_test ; PYTEST_CURRENT_TEST=true alembic upgrade head ; pytest tests/
+dropdb fis_test_data ; createdb fis_data_test ; PYTEST_CURRENT_TEST=true alembic upgrade head && pytest -v tests/
 ```
 
 ## License

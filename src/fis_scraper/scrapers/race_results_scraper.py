@@ -722,7 +722,8 @@ class RaceResultsScraper:
                 length=race_info.get('length'),
                 gates=race_info.get('gates'),
                 turning_gates=race_info.get('turning_gates'),
-                homologation=race_info.get('homologation')
+                homologation=race_info.get('homologation'),
+                nation=race_info.get('nation')
             )
             
             self.session.add(race)
@@ -734,7 +735,7 @@ class RaceResultsScraper:
             logger.error(f"Error creating race: {e}")
             return None
     
-    def save_race_results(self, race: Race, results: List[Dict[str, Any]]) -> int:
+    def _save_race_results(self, race: Race, results: List[Dict[str, Any]]) -> int:
         """Save race results to database.
         
         Args:
@@ -812,7 +813,7 @@ class RaceResultsScraper:
         """
         race = self._get_or_create_race(race_info)
         if race and results:
-            return self.save_race_results(race, results)
+            return self._save_race_results(race, results)
         elif race:
             logger.warning(f"No results found for raceid {race_info['fis_db_id']}")
             return 0
