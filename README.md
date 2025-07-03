@@ -49,10 +49,10 @@ This Python application scrapes and analyzes FIS (International Ski Federation) 
    Discover and scrape race results:
    ```bash
    # Discover races in current season
-   python main.py races  --discover-only
+   python -m src.fis_scraper.scrapers.race_result  --discover-only
       
    # Scrape specific race by ID
-   python main.py races --race-id 12345
+   python -m src.fis_scraper.scrapers.race_result --race-id 12345
    ```
 
    **Important:** To run the race results scraper, you must use the `-m` flag to run it as a module. This is required because the code uses relative imports, which do not work if you run the script directly.
@@ -75,8 +75,6 @@ This Python application scrapes and analyzes FIS (International Ski Federation) 
    ```
 
    TODO:
-      - add ability to ingest race results via scraping, add testing on methods that
-      actually save to DB
       - allow for CSV input of roster for eval
       - create per-athlete analysis (points, rank, and results over time)
       - create per-roster analysis (points, rank and result over time; particular   attention to delta in rank between selection and graduation)
@@ -163,7 +161,7 @@ The race results scraper now stores the FIS race ID (`fis_db_id`) for each resul
 
 Run the test suite:
 ```bash
-createdb fis_data_test ; PYTEST_CURRENT_TEST=true alembic upgrade head ; pytest tests/
+dropdb fis_test_data ; createdb fis_data_test ; PYTEST_CURRENT_TEST=true alembic upgrade head ; pytest tests/
 ```
 
 ## License

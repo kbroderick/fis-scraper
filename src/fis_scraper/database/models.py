@@ -49,7 +49,7 @@ class Athlete(Base):
     ski_club: Mapped[Optional[str]] = Column(String)
     national_code: Mapped[Optional[str]] = Column(String)  # National federation skier ID
     
-    results: Mapped[List["RaceResult"]] = relationship("RaceResult", back_populates="athlete")
+    race_results: Mapped[List["RaceResult"]] = relationship("RaceResult", back_populates="athlete")
     points: Mapped[List["AthletePoints"]] = relationship("AthletePoints", back_populates="athlete")
 
 class Race(Base):
@@ -98,7 +98,7 @@ class Race(Base):
     turning_gates: Mapped[Optional[int]] = Column(Integer, nullable=True)  # Number of turning gates
     homologation: Mapped[Optional[str]] = Column(String, nullable=True)  # Homologation number
     
-    results: Mapped[List["RaceResult"]] = relationship("RaceResult", back_populates="race")
+    race_results: Mapped[List["RaceResult"]] = relationship("RaceResult", back_populates="race")
 
 class RaceResult(Base):
     """Database model representing a single athlete's race result.
@@ -123,13 +123,12 @@ class RaceResult(Base):
     points: Mapped[Optional[float]] = Column(Float)
     rank: Mapped[Optional[int]] = Column(Integer)
     racer_time: Mapped[Optional[float]] = Column(Float, nullable=True)  # Racer's time in seconds
-    points: Mapped[Optional[float]] = Column(Float)  # Race points
     result: Mapped[Optional[str]] = Column(String, nullable=True)  # Letter Result (DNF1, DNS, etc.)
     run1_time: Mapped[Optional[float]] = Column(Float, nullable=True)  # First run time in seconds
     run2_time: Mapped[Optional[float]] = Column(Float, nullable=True)  # Second run time in seconds
     
-    race: Mapped["Race"] = relationship("Race", back_populates="results")
-    athlete: Mapped["Athlete"] = relationship("Athlete", back_populates="results")
+    race: Mapped["Race"] = relationship("Race", back_populates="race_results")
+    athlete: Mapped["Athlete"] = relationship("Athlete", back_populates="race_results")
 
 class PointsList(Base):
     """Database model representing a FIS points list publication.
@@ -189,4 +188,4 @@ class AthletePoints(Base):
     calculated_date: Mapped[Optional[Date]] = Column(Date)
     
     athlete: Mapped["Athlete"] = relationship("Athlete", back_populates="points")
-    points_list: Mapped["PointsList"] = relationship("PointsList", back_populates="athlete_points") 
+    points_list: Mapped["PointsList"] = relationship("PointsList", back_populates="athlete_points")

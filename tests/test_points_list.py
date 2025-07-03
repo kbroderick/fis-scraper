@@ -293,24 +293,24 @@ def test_download_and_process_points_list_not_present(scraper, mocker):
     mock_response.status_code = 200
     mock_response.content = mock_file
     mocker.patch('requests.get', return_value=mock_response)
-    mocker.patch('src.fis_scraper.scrapers.points_list.PointsListScraper._save_points_list')
+    mocker.patch('src.fis_scraper.scrapers.points_list_scraper.PointsListScraper._save_points_list')
 
     # NOTE: we are not mocking builtins.open, so file will be written to disk.
     mocker.patch('os.path.exists', side_effect=_points_list_path_exists)
     scraper.download_and_process_points_list(LIST_413_DICT)
     requests.get.assert_called_once_with(LIST_413_DICT['csv_url'])
-    src.fis_scraper.scrapers.points_list.PointsListScraper._save_points_list.assert_called_once()
+    src.fis_scraper.scrapers.points_list_scraper.PointsListScraper._save_points_list.assert_called_once()
 
 def test_download_and_process_points_list_present(scraper, mocker):
     mocker.patch('os.path.exists', return_value=True)
     mocker.patch('builtins.open')
     mocker.patch('requests.get')
     mocker.patch('pandas.read_csv')
-    mocker.patch('src.fis_scraper.scrapers.points_list.PointsListScraper._save_points_list')
+    mocker.patch('src.fis_scraper.scrapers.points_list_scraper.PointsListScraper._save_points_list')
     scraper.download_and_process_points_list(LIST_413_DICT)
     requests.get.assert_not_called() 
     builtins.open.assert_not_called()
-    src.fis_scraper.scrapers.points_list.PointsListScraper._save_points_list.assert_called_once()
+    src.fis_scraper.scrapers.points_list_scraper.PointsListScraper._save_points_list.assert_called_once()
 
 def test_save_points_list(scraper):
     # Create test data

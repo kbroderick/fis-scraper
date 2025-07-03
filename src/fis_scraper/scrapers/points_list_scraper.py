@@ -201,8 +201,7 @@ class PointsListScraper:
         try:
             if not os.path.exists(f'{self.DATA_FOLDER}/points_lists'):
                 os.makedirs(f'{self.DATA_FOLDER}/points_lists')
-
-            points_list_file = f'{self._get_filelocation_for_points_list(points_list_data)}'
+            points_list_file = self._get_filelocation_for_points_list(points_list_data)
 
             if os.path.exists(points_list_file):
                 logger.info(f"Points list already exists: {points_list_file}")                

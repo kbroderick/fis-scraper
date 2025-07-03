@@ -79,7 +79,6 @@ class RaceResultsScraper:
         response.raise_for_status()
         soup = BeautifulSoup(response.text, 'html.parser')
         race_links = soup.find_all('a', {'class': 'pl-xs-0_6 pr-xs-0 g-sm-2 g-xs-3 justify-sm-center hidden-md-up bold'})
-        breakpoint()
         return [link.get('href') for link in race_links]
     
     def find_races_by_event(self, event_url: str) -> List[int]:
@@ -193,7 +192,11 @@ class RaceResultsScraper:
         return f"{BASE_URL}/general/results.html?sectorcode=AL&raceid={race_id}"
 
     def scrape_race_results(self, race_id: int) -> tuple[Dict[str, Any], List[Dict[str, Any]]]:
-        """Scrape complete results for a specific race.
+        """Scrape complete results for a specific race. Verifies
+        appropriate PointsList is available for the race date; does not
+        check for existing record of race in database.
+
+        If race has not yet occurred, will return empty results list.
         
         Args:
             race_id: FIS race ID
@@ -204,15 +207,13 @@ class RaceResultsScraper:
         """
         results: List[Dict[str, Any]] = []
         race_info: Dict[str, Any] = {}
-        
-        #TODO: verify we don't already have this race in the database
-        #      If we. do, verify that results and course data are 
-        #      already recorded. If not, scrape and record.
+
         try:
             # Get race results page
-            response = requests.get(self._race_link_from_id(race_id))
-            response.raise_for_status()
-            soup = BeautifulSoup(response.text, 'html.parser')
+            soup = self._get_race_results_page(race_id)
+            if not soup:
+                logger.error(f"No race results page found for race {race_id}")
+                return race_info, results
             
             race_info = self._parse_fis_race_header(soup, race_id)
 
@@ -223,6 +224,7 @@ class RaceResultsScraper:
                 logger.warning(f"No results table found for race {race_id}")
                 return race_info, results
             rows = fis_results_div.find_all('a', class_='table-row')
+
             if race_info.get('race_date'):
                 points_list = self._ensure_points_list_for_date(race_info['race_date'])
                 if not points_list:
@@ -237,16 +239,30 @@ class RaceResultsScraper:
                 winner_info = self._get_winner_info(rows[0], race_id)
                 race_info.update(winner_info)
                 race_info['total_finishers'] = len(results)
-                non_finishers = self._get_non_finishers(fis_results_div.parent, race_id)
+                results.extend(self._get_non_finishers(fis_results_div.parent, race_id))
                 race_info['total_starters'] = self._calculate_total_starters(results)
-                results.extend(non_finishers)
+                logger.debug(f"Scraped {len(results)} results for race {race_id}")
         
-            logger.debug(f"Scraped {len(results)} results for race {race_id}")
             return race_info, results
 
         except requests.RequestException as e:
             logger.error(f"Error scraping race {race_id}: {e}")
         return race_info, results
+
+    def _get_race_results_page(self, race_id: int) -> Optional[BeautifulSoup]:
+        """
+        Get the race results page for a given race ID.
+
+        Args:
+            race_id: FIS race ID
+
+        Returns:
+            Optional[BeautifulSoup]: BeautifulSoup object of race page,
+            or None if error.
+        """
+        response = requests.get(self._race_link_from_id(race_id))
+        response.raise_for_status()
+        return BeautifulSoup(response.text, 'html.parser')
 
     def _parse_fis_race_header(self, soup: BeautifulSoup, race_id: int) -> Dict[str, Any]:
         """Parse race header information from real FIS HTML structure.
@@ -272,7 +288,6 @@ class RaceResultsScraper:
         codex = None
         script = soup.find('script', string=lambda t: t and 'competitionCodex' in t)
         if script:
-            import re
             m = re.search(r'competitionCodex":(\d+)', script.text)
             if m:
                 codex = int(m.group(1))
@@ -656,35 +671,15 @@ class RaceResultsScraper:
         except ValueError:
             return False
     
-    def _get_athlete(self, fis_db_id: Optional[int], athlete_name: Optional[str], nation: Optional[str]) -> Optional[Athlete]:
+    def _get_fis_athlete(self, fis_db_id: int) -> Optional[Athlete]:
         """Return an athlete by FIS DB ID or name/nation, or None."""
-        if fis_db_id:
-            athlete = self.session.query(Athlete).filter_by(fis_db_id=fis_db_id).first()
-            if athlete:
-                return athlete
-        if athlete_name and nation:
-            athlete = self.session.query(Athlete).filter_by(
-                last_name=athlete_name.split()[-1] if ' ' in athlete_name else athlete_name,
-                first_name=athlete_name.split()[0] if ' ' in athlete_name else '',
-                nation_code=nation[:3].upper()
-            ).first()
-            if athlete:
-                return athlete
-        return None
-
-    def _validate_athlete_exists(self, result_data: Dict[str, Any]) -> Optional[Athlete]:
-        """Validate that athlete exists in database."""
-        return self._get_athlete(
-            result_data.get('athlete_fis_db_id'),
-            result_data.get('athlete_name'),
-            result_data.get('nation')
-        )
+        return self.session.query(Athlete).filter_by(fis_db_id=fis_db_id).first()
         
     def _get_or_create_race(self, race_info: Dict[str, Any]) -> Optional[Race]:
-        """Get or create a Race record from result data.
+        """Get or create a Race record from race-info data.
         
         Args:
-            race_info: Race result data containing race information
+            race_info: Race data containing race information
             
         Returns:
             Optional[Race]: Race object if found or created, None otherwise
@@ -739,10 +734,11 @@ class RaceResultsScraper:
             logger.error(f"Error creating race: {e}")
             return None
     
-    def save_race_results(self, results: List[Dict[str, Any]]) -> int:
+    def save_race_results(self, race: Race, results: List[Dict[str, Any]]) -> int:
         """Save race results to database.
         
         Args:
+            race: Race object, already persisted (has id)
             results: List of race result dictionaries
             
         Returns:
@@ -753,23 +749,14 @@ class RaceResultsScraper:
         
         saved_count = 0
         
-        # Get or create the race record from the first result
-        # (all results should have the same race information)
-        race = self._get_or_create_race(results[0])
-        if not race:
-            logger.error("Could not create or find race record")
-            return 0
-        
         for result_data in results:
             try:
                 # Validate athlete exists (should exist from points list ingestion)
-                athlete = self._validate_athlete_exists(result_data)
+                athlete = self._get_fis_athlete(result_data.get('athlete_fis_db_id'))
                 if not athlete:
-                    # Try to create athlete if missing (should be rare)
-                    athlete = self._create_athlete_if_needed(result_data)
-                    if not athlete:
-                        logger.warning(f"Could not find or create athlete for {result_data.get('athlete_name')}")
-                        continue
+                    logger.error(f"FIS Raceid {race.fis_db_id}: Could not find athlete with FIS DB ID {result_data.get('athlete_fis_db_id')}"
+                                 f" for {result_data.get('athlete_name')}")
+                    continue
                 
                 # Create race result linked to the race
                 race_result = RaceResult(
@@ -778,7 +765,9 @@ class RaceResultsScraper:
                     points=result_data.get('points'),
                     rank=result_data.get('rank'),
                     racer_time=result_data.get('racer_time'),
-                    result=result_data.get('result')
+                    result=result_data.get('result'),
+                    run1_time=result_data.get('run1_time'),
+                    run2_time=result_data.get('run2_time')
                 )
                 
                 self.session.add(race_result)
@@ -815,16 +804,20 @@ class RaceResultsScraper:
         
         Args:
             race_info: Race information dictionary
-            results: List of race result dictionaries
+            results: List of race result dictionaries; if empty, race is
+            recorded but no results are saved.
             
         Returns:
             int: Number of results saved
         """
         race = self._get_or_create_race(race_info)
-        if race:
-            return self.save_race_results(results)
+        if race and results:
+            return self.save_race_results(race, results)
+        elif race:
+            logger.warning(f"No results found for raceid {race_info['fis_db_id']}")
+            return 0
         else:
-            logger.warning(f"No race found for {race_info.get('race_name')}")
+            logger.warning(f"No race found or created for raceid {race_info['fis_db_id']}")
             return -1
 
 
