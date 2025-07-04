@@ -177,6 +177,12 @@ class RaceResultsScraper:
             int: Number of results saved
         """
         race = self._get_or_create_race(race_info)
+        if race and len(race.race_results) > 0:
+            if len(race.race_results) == len(results):
+                logger.warning(f"Race {race_info['fis_db_id']} already has {len(results)} results; continuing.")
+            else:
+                logger.error(f"Race {race_info['fis_db_id']} already has {len(race.race_results)} results; found {len(results)} new results; review and update manually.")
+            return 0
         if race and results:
             return self._save_race_results(race, results)
         elif race:
@@ -435,8 +441,8 @@ class RaceResultsScraper:
                                 course_info['length'] = int(match.group(1))
                         elif label == 'Homologation Number':
                             course_info['homologation'] = value.strip()
-            # Look for gates information in run sections (1st Run, 2nd Run, or Course)
-            elif any(run_type in header_text for run_type in ['1st Run', '2nd Run', 'Course']):
+            # Look for gates information in run sections (1st Run (tech) or Course (speed)
+            elif any(run_type in header_text for run_type in ['1st Run', 'Course']):
                 rows = section.find_all(['div', 'a'], class_='table-row')
                 for row in rows:
                     label_div, value_div = find_label_value(row, 'justify-left bold', 'justify-left', value_exact=False)
@@ -444,11 +450,24 @@ class RaceResultsScraper:
                         label = label_div.get_text(strip=True)
                         value = value_div.get_text(strip=True)
                         if label == 'Number of Gates':
-                            if value.isdigit() and 'gates' not in course_info:
-                                course_info['gates'] = int(value)
+                            if value.isdigit() and 'gates1' not in course_info:
+                                course_info['gates1'] = int(value)
                         elif label == 'Turning Gates':
-                            if value.isdigit() and 'turning_gates' not in course_info:
-                                course_info['turning_gates'] = int(value)
+                            if value.isdigit() and 'turning_gates1' not in course_info:
+                                course_info['turning_gates1'] = int(value)
+            elif '2nd Run' in header_text:
+                rows = section.find_all(['div', 'a'], class_='table-row')
+                for row in rows:
+                    label_div, value_div = find_label_value(row, 'justify-left bold', 'justify-left', value_exact=False)
+                    if label_div and value_div:
+                        label = label_div.get_text(strip=True)
+                        value = value_div.get_text(strip=True)
+                        if label == 'Number of Gates':
+                            if value.isdigit() and 'gates2' not in course_info:
+                                course_info['gates2'] = int(value)
+                        elif label == 'Turning Gates':
+                            if value.isdigit() and 'turning_gates2' not in course_info:
+                                course_info['turning_gates2'] = int(value)
         return course_info
 
     def _parse_fis_table_row(self, row: Tag, race_id: int, result_status: Optional[str] = None) -> Optional[Dict[str, Any]]:
@@ -750,8 +769,10 @@ class RaceResultsScraper:
                 start_altitude=race_info.get('start_altitude'),
                 finish_altitude=race_info.get('finish_altitude'),
                 length=race_info.get('length'),
-                gates=race_info.get('gates'),
-                turning_gates=race_info.get('turning_gates'),
+                gates1=race_info.get('gates1'),
+                gates2=race_info.get('gates2'),
+                turning_gates1=race_info.get('turning_gates1'),
+                turning_gates2=race_info.get('turning_gates2'),
                 homologation=race_info.get('homologation'),
                 nation=race_info.get('nation')
             )

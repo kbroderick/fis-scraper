@@ -35,7 +35,7 @@ class TestRaceResultsScraper:
         additional finisher, DNF2 example, race info.
         """
         # Read the actual HTML file
-        with open('tests/data/LoafNorAMSL-20251020-1970.html', 'r') as f:
+        with open('tests/data/html/races/LoafNorAMSL-20251020-1970.html', 'r') as f:
             html_content = f.read()
         with patch.object(scraper, '_get_points_list_for_date', return_value=Mock()), \
              patch.object(scraper, '_get_race_results_page') as mock_get:
@@ -75,7 +75,7 @@ class TestRaceResultsScraper:
 
     def test_scrape_race_results_no_table(self, mocker, scraper: RaceResultsScraper) -> None:
         """Test race results scraping for future race with no FIS results div present."""
-        with open('tests/data/ElColorado-GS-0154-127132-no-results.html', 'r') as f:
+        with open('tests/data/html/races/ElColorado-GS-0154-127132-no-results.html', 'r') as f:
             html_content = f.read()
         with patch.object(scraper, '_get_points_list_for_date', return_value=Mock()), \
              patch.object(scraper, '_get_race_results_page') as mock_get:
@@ -102,7 +102,7 @@ class TestRaceResultsScraper:
         """Test parsing race header from LoafNorAMSL HTML file."""
         scraper = RaceResultsScraper()
         
-        with open('tests/data/LoafNorAMSL-20251020-1970.html', 'r', encoding='utf-8') as f:
+        with open('tests/data/html/races/LoafNorAMSL-20251020-1970.html', 'r', encoding='utf-8') as f:
             html_content = f.read()
         
         soup = BeautifulSoup(html_content, 'html.parser')
@@ -119,7 +119,7 @@ class TestRaceResultsScraper:
         """Test parsing race header from AspenNJRGS HTML file."""
         scraper = RaceResultsScraper()
         
-        with open('tests/data/AspenNJRGS-20250104-1828.html', 'r', encoding='utf-8') as f:
+        with open('tests/data/html/races/AspenNJRGS-20250104-1828.html', 'r', encoding='utf-8') as f:
             html_content = f.read()
         
         soup = BeautifulSoup(html_content, 'html.parser')
@@ -136,7 +136,7 @@ class TestRaceResultsScraper:
         """Test parsing race header from Gressan-Pila-DH HTML file."""
         scraper = RaceResultsScraper()
         
-        with open('tests/data/Gressan-Pila-DH-20250110-5310.html', 'r', encoding='utf-8') as f:
+        with open('tests/data/html/races/Gressan-Pila-DH-20250110-5310.html', 'r', encoding='utf-8') as f:
             html_content = f.read()
         
         soup = BeautifulSoup(html_content, 'html.parser')
@@ -153,7 +153,7 @@ class TestRaceResultsScraper:
         """Test parsing race header from Gressan-Pila-TRA HTML file."""
         scraper = RaceResultsScraper()
         
-        with open('tests/data/Gressan-Pila-TRA-20250109-5311.html', 'r', encoding='utf-8') as f:
+        with open('tests/data/html/races/Gressan-Pila-TRA-20250109-5311.html', 'r', encoding='utf-8') as f:
             html_content = f.read()
         
         soup = BeautifulSoup(html_content, 'html.parser')
@@ -170,23 +170,53 @@ class TestRaceResultsScraper:
         """Test parsing course details from LoafNorAMSL HTML file."""
         scraper = RaceResultsScraper()
         
-        with open('tests/data/LoafNorAMSL-20251020-1970.html', 'r', encoding='utf-8') as f:
+        with open('tests/data/html/races/LoafNorAMSL-20251020-1970.html', 'r', encoding='utf-8') as f:
             html_content = f.read()
         
         soup = BeautifulSoup(html_content, 'html.parser')
         course_details = scraper._parse_course_details(soup)
-        print(f"PARSED COURSE DETAILS: {course_details}")
         assert course_details['start_altitude'] == 918
         assert course_details['finish_altitude'] == 743
-        assert course_details['gates'] == 58  # First run gates
-        assert course_details['turning_gates'] == 56  # First run turning gates
+        assert course_details['gates1'] == 58  # First run gates
+        assert course_details['turning_gates1'] == 56  # First run turning gates
+        assert course_details['gates2'] == 54  # Second run gates
+        assert course_details['turning_gates2'] == 53  # Second run turning gates
         assert course_details['homologation'] == '13162/05/19'
+
+    def test_parse_course_details_loaf_nor_am_dh(self) -> None:
+        """Test parsing course details from LoafNorAMDH HTML file."""
+        scraper = RaceResultsScraper()
+        
+        with open('tests/data/html/races/LoafNorAMDH-20250312-1963-124875.html', 'r', encoding='utf-8') as f:
+            html_content = f.read()
+        
+        soup = BeautifulSoup(html_content, 'html.parser')
+        course_details = scraper._parse_course_details(soup)
+        assert course_details['start_altitude'] == 1146
+        assert course_details['finish_altitude'] == 618
+        assert course_details['gates1'] == 30
+        assert course_details['homologation'] == '15602/12/24'
+
+    def test_parse_course_details_loaf_nor_am_sg(self) -> None:
+        """ Test parsing course details from LoafNorAMSG HTML file."""
+        scraper = RaceResultsScraper()
+        
+        with open('tests/data/html/races/LoafNorAMSG-20250313-1966-124881.html', 'r', encoding='utf-8') as f:
+            html_content = f.read()
+        
+        soup = BeautifulSoup(html_content, 'html.parser')
+        course_details = scraper._parse_course_details(soup)
+        assert course_details['start_altitude'] == 1146
+        assert course_details['finish_altitude'] == 618
+        assert course_details['gates1'] == 38
+        assert course_details['turning_gates1'] == 35
+        assert course_details['homologation'] == '15603/12/24'
 
     def test_parse_course_details_aspen_njr_gs(self) -> None:
         """Test parsing course details from AspenNJRGS HTML file."""
         scraper = RaceResultsScraper()
         
-        with open('tests/data/AspenNJRGS-20250104-1828.html', 'r', encoding='utf-8') as f:
+        with open('tests/data/html/races/AspenNJRGS-20250104-1828.html', 'r', encoding='utf-8') as f:
             html_content = f.read()
         
         soup = BeautifulSoup(html_content, 'html.parser')
@@ -195,15 +225,17 @@ class TestRaceResultsScraper:
         assert course_details['start_altitude'] == 2827
         assert course_details['finish_altitude'] == 2481
         assert course_details['length'] == 1198
-        assert course_details['gates'] == 42  # First run gates
-        assert course_details['turning_gates'] == 40  # First run turning gates
+        assert course_details['gates1'] == 42  # First run gates
+        assert course_details['turning_gates1'] == 40  # First run turning gates
+        assert course_details['gates2'] == 42  # Second run gates
+        assert course_details['turning_gates2'] == 40  # Second run turning gates
         assert course_details['homologation'] == '15067/10/23'
 
     def test_parse_course_details_gressan_pila_dh(self) -> None:
         """Test parsing course details from Gressan-Pila-DH HTML file."""
         scraper = RaceResultsScraper()
         
-        with open('tests/data/Gressan-Pila-DH-20250110-5310.html', 'r', encoding='utf-8') as f:
+        with open('tests/data/html/races/Gressan-Pila-DH-20250110-5310.html', 'r', encoding='utf-8') as f:
             html_content = f.read()
         
         soup = BeautifulSoup(html_content, 'html.parser')
@@ -212,8 +244,8 @@ class TestRaceResultsScraper:
         assert course_details['start_altitude'] == 2595
         assert course_details['finish_altitude'] == 2005
         assert course_details['length'] == 1492
-        assert course_details['gates'] == 32  # Course gates (single run)
-        assert course_details['turning_gates'] == 32  # Course turning gates (single run)
+        assert course_details['gates1'] == 32  # Course gates (single run)
+        assert course_details['turning_gates1'] == 32  # Course turning gates (single run)
         assert course_details['homologation'] == '13352/11/19'
 
     def test_parse_fis_table_row_loaf_nor_am_sl(self) -> None:
@@ -317,7 +349,7 @@ class TestRaceResultsScraper:
 
     def test_get_non_finishers(self, scraper: RaceResultsScraper):
         """Test getting non-finishers from HTML file."""
-        with open('tests/data/LoafNorAMSL-20251020-1970.html', 'r', encoding='utf-8') as f:
+        with open('tests/data/html/races/LoafNorAMSL-20251020-1970.html', 'r', encoding='utf-8') as f:
             html_content = f.read()
         soup = BeautifulSoup(html_content, 'html.parser')
         fis_results_div = soup.find('div', id='events-info-results', class_='table__body')
@@ -335,7 +367,7 @@ class TestRaceResultsScraper:
 
     def test_get_race_results_page(self, scraper: RaceResultsScraper):
         """Test getting race results page."""
-        with open('tests/data/ElColorado-GS-0154-127132-no-results.html', 'r', encoding='utf-8') as f:
+        with open('tests/data/html/races/ElColorado-GS-0154-127132-no-results.html', 'r', encoding='utf-8') as f:
             html_content = f.read()
 
         with patch('src.fis_scraper.scrapers.race_results_scraper.requests.get') as mock_get:
@@ -352,7 +384,7 @@ class TestRaceResultsScraperDatabase:
     @pytest.fixture
     def sample_results_soup(self) -> BeautifulSoup:
         """Create sample result data for testing."""
-        with open('tests/data/LoafAbbrev-20250320-1970-124886.html', 'r', encoding='utf-8') as f:
+        with open('tests/data/html/races/LoafAbbrev-20250320-1970-124886.html', 'r', encoding='utf-8') as f:
             html_content = f.read()
         return BeautifulSoup(html_content, 'html.parser')
 
@@ -376,7 +408,7 @@ class TestRaceResultsScraperDatabase:
         pls = PointsListScraper()
         with patch.object(PointsListScraper,
                           '_get_filelocation_for_points_list',
-                          return_value='tests/data/FAL_2025412-abbrev.csv'):
+                          return_value='tests/data/points_lists/FAL_2025412-abbrev.csv'):
             res = pls.download_and_process_points_list(
                 {'sectorcode': 'AL', 'seasoncode': '2025', 'listid': '412',
                  'name': '21st FIS points list 2024/25',
@@ -770,7 +802,7 @@ class TestFindEventsByCategory:
         """Test finding events by category."""
         mock_response = Mock()
         mock_response.raise_for_status.return_value = None
-        mock_response.text = open('tests/data/get_select_category.html', 'r').read()
+        mock_response.text = open('tests/data/html/get_select_category.html', 'r').read()
         mock_get.return_value = mock_response
         events = scraper.find_events_by_category('UNI', 2025)
         assert len(events) == 26
@@ -796,7 +828,7 @@ class TestFindRaces:
         """Test finding races by event."""
         mock_response = Mock()
         mock_response.raise_for_status.return_value = None
-        mock_response.text = open('tests/data/eventdetails57032.html', 'r').read()
+        mock_response.text = open('tests/data/html/eventdetails57032.html', 'r').read()
         mock_get.return_value = mock_response
         races = scraper.find_races_by_event('https://www.fis-ski.com/DB/general/event-details.html?sectorcode=AL&eventid=57032&seasoncode=2025')
         assert len(races) == 4

@@ -94,8 +94,10 @@ class Race(Base):
     start_altitude: Mapped[Optional[int]] = Column(Integer, nullable=True)  # Start altitude in meters
     finish_altitude: Mapped[Optional[int]] = Column(Integer, nullable=True)  # Finish altitude in meters
     length: Mapped[Optional[int]] = Column(Integer, nullable=True)  # Course length in meters
-    gates: Mapped[Optional[int]] = Column(Integer, nullable=True)  # Number of gates
-    turning_gates: Mapped[Optional[int]] = Column(Integer, nullable=True)  # Number of turning gates
+    gates1: Mapped[Optional[int]] = Column(Integer, nullable=True)  # Number of gates
+    gates2: Mapped[Optional[int]] = Column(Integer, nullable=True)  # Number of gates, run 2
+    turning_gates1: Mapped[Optional[int]] = Column(Integer, nullable=True)  # Number of turning gates, run 1
+    turning_gates2: Mapped[Optional[int]] = Column(Integer, nullable=True)  # Number of turning gates, run 2
     homologation: Mapped[Optional[str]] = Column(String, nullable=True)  # Homologation number
     
     race_results: Mapped[List["RaceResult"]] = relationship("RaceResult", back_populates="race")

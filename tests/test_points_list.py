@@ -243,7 +243,7 @@ def test_get_filename_for_points_list(scraper):
     assert scraper._get_filename_for_points_list(list_data) == "FAL_2025413"
 
 def test_get_points_lists(scraper, mocker):
-    test_file_path = os.path.join('tests', 'data', 'fis_point_lists_20250523.html')
+    test_file_path = os.path.join('tests', 'data', 'html','fis_point_lists_20250523.html')
     with open(test_file_path, 'r') as f:
         mock_html = f.read()
 
@@ -286,7 +286,7 @@ def _points_list_path_exists(path):
     return True
 
 def test_download_and_process_points_list_not_present(scraper, mocker):
-    points_list_file = os.path.join('tests', 'data', 'FAL_2025413.csv')
+    points_list_file = os.path.join('tests', 'data', 'points_lists', 'FAL_2025413.csv')
     with open(points_list_file, 'rb') as f:
         mock_file = f.read()
     mock_response = MagicMock(spec=response)
@@ -314,7 +314,7 @@ def test_download_and_process_points_list_present(scraper, mocker):
 
 def test_save_points_list(scraper):
     # Create test data
-    abbreviated_points_list_file = os.path.join('tests', 'data', 'FAL_2025413_abbrev.csv')
+    abbreviated_points_list_file = os.path.join('tests', 'data', 'points_lists', 'FAL_2025413_abbrev.csv')
     # Save points list
     scraper._save_points_list(LIST_413_DICT, pd.read_csv(abbreviated_points_list_file))
     

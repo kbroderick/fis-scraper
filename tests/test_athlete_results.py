@@ -246,21 +246,21 @@ def test_parse_result_row_invalid(scraper):
     assert result is None
 
 def test_parse_fis_db_id_from_search(scraper):
-    test_file_path = os.path.join('tests', 'data', 'UnderhillB-search_results.html')
+    test_file_path = os.path.join('tests', 'data', 'html', 'UnderhillB-search_results.html')
     with open(test_file_path, 'r') as f:
         html = f.read()
 
     assert scraper._parse_fis_db_id_from_search(html, 6532585) == 210990
 
 def test_parse_fis_db_id_from_search_invalid(scraper):
-    test_file_path = os.path.join('tests', 'data', 'UnderhillB-search_results.html')
+    test_file_path = os.path.join('tests', 'data', 'html', 'UnderhillB-search_results.html')
     with open(test_file_path, 'r') as f:
         html = f.read()
 
     assert scraper._parse_fis_db_id_from_search(html, 6539999) == None
 
 def test_get_athlete_results(scraper, mocker):
-    test_file_path = os.path.join('tests', 'data', 'UnderhillBradshaw-bare-results.html')
+    test_file_path = os.path.join('tests', 'data', 'html', 'UnderhillBradshaw-bare-results.html')
     with open(test_file_path, 'r') as f:
         html = f.read()
     mock_response = MagicMock(spec=response)
