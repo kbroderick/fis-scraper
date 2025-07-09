@@ -75,13 +75,12 @@ This Python application scrapes and analyzes FIS (International Ski Federation) 
    ```
 
    TODO:
-      - explore if points list ingest can be done without per-athlete .commit()
       - allow for CSV input of roster for eval
       - create per-athlete analysis (points, rank, and results over time)
       - create per-roster analysis (points, rank and result over time; particular   attention to delta in rank between selection and graduation)
       - allow for web scraping to generate roster
-      - web interface?
-      - containerized?
+      - web interface
+      - explore hosting options
 
    Performance concerns:
 

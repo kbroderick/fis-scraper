@@ -285,8 +285,8 @@ class PointsListScraper:
             ac_status = None
 
         return AthletePoints(
-                    athlete_id=athlete.id,
-                    points_list_id=points_list.id,
+                    athlete = athlete,
+                    points_list = points_list,
                     sl_points=self._float_or_none(row.SLpoints),
                     gs_points=self._float_or_none(row.GSpoints),
                     sg_points=self._float_or_none(row.SGpoints),
@@ -325,7 +325,6 @@ class PointsListScraper:
                 if not athlete:
                     athlete = self._athlete_from_row(row)
                     self.session.add(athlete)
-                    self.session.flush()
                 
                 athlete_points = self._athlete_points_from_row(row, athlete, points_list)
                 self.session.add(athlete_points)
