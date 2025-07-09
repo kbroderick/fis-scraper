@@ -350,9 +350,11 @@ class RaceResultsScraper:
         if discipline_element:
             discipline_text = discipline_element.get_text(strip=True)
             # Extract discipline from text like "Men's Giant Slalom" or "Women's Slalom"
-            discipline_match = re.search(r"(?:Men's|Women's)\s+(.+)", discipline_text)
+            discipline_match = re.search(r"((?:Men's|Women's))\s+(.+)", discipline_text)
             if discipline_match:
-                discipline_str = discipline_match.group(1).strip()
+                gender_str = discipline_match.group(1).strip()
+                race_info['gender'] = self._parse_gender(gender_str)
+                discipline_str = discipline_match.group(2).strip()
                 race_info['discipline'] = self._parse_discipline(discipline_str)
         
         # Parse race category from event header subtitle
@@ -673,6 +675,27 @@ class RaceResultsScraper:
         except ValueError:
             return None
     
+    def _parse_gender(self, gender_str: str) -> Optional[Gender]:
+        """Parse gender string to Gender enum.
+        
+        Args:
+            gender_str: Gender string: should contain 'women', 'men', or
+             'mixed'
+            
+        Returns:
+            Optional[Gender]: Gender enum value
+        """
+        if not gender_str:
+            return None
+        
+        if 'women' in gender_str.lower():
+            return Gender.F
+        elif 'men' in gender_str.lower():
+            return Gender.M
+        elif 'mixed' in gender_str.lower():
+            return Gender.A
+        return None
+    
     def _parse_discipline(self, discipline_str: str) -> Optional[Discipline]:
         """Parse discipline string to Discipline enum.
         
@@ -778,7 +801,8 @@ class RaceResultsScraper:
                 turning_gates1=race_info.get('turning_gates1'),
                 turning_gates2=race_info.get('turning_gates2'),
                 homologation=race_info.get('homologation'),
-                nation=race_info.get('nation')
+                nation=race_info.get('nation'),
+                gender=race_info.get('gender')
             )
             
             self.session.add(race)

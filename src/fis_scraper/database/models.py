@@ -16,6 +16,9 @@ class Gender(enum.Enum):
     """Enumeration of athlete genders."""
     M = "Male"
     F = "Female"
+    A = "All"
+    # NB: "All" used to record mixed-gender events. As FIS tracks all
+    # athletes as either "Male" or "Female", this system will as well.
 
 class Athlete(Base):
     """Database model representing an alpine skiing athlete.
@@ -99,6 +102,7 @@ class Race(Base):
     turning_gates1: Mapped[Optional[int]] = Column(Integer, nullable=True)  # Number of turning gates, run 1
     turning_gates2: Mapped[Optional[int]] = Column(Integer, nullable=True)  # Number of turning gates, run 2
     homologation: Mapped[Optional[str]] = Column(String, nullable=True)  # Homologation number
+    gender: Mapped[Optional[Gender]] = Column(Enum(Gender), nullable=True)  # Gender of event competitors
     
     race_results: Mapped[List["RaceResult"]] = relationship("RaceResult", back_populates="race")
 

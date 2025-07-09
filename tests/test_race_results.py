@@ -90,6 +90,7 @@ class TestRaceResultsScraper:
                             'race_codex': 154,
                             'race_date': date(2025, 7, 24),
                             'discipline': Discipline.GS,
+                            'gender': Gender.M,
                             'fis_db_id': 127132,
                             'homologation': '14984/06/23',
                             'race_category': 'FIS',
@@ -114,6 +115,7 @@ class TestRaceResultsScraper:
         assert race_info['discipline'] == Discipline.SL
         assert race_info['race_category'] == 'Nor-Am Cup'
         assert race_info['location'] == 'Sugarloaf'
+        assert race_info['gender'] == Gender.M
 
     def test_parse_fis_race_header_aspen_njr_gs(self) -> None:
         """Test parsing race header from AspenNJRGS HTML file."""
@@ -131,6 +133,7 @@ class TestRaceResultsScraper:
         assert race_info['discipline'] == Discipline.GS
         assert race_info['race_category'] == 'National Junior Race'
         assert race_info['location'] == 'Aspen / Highlands'
+        assert race_info['gender'] == Gender.M
 
     def test_parse_fis_race_header_gressan_pila_dh(self) -> None:
         """Test parsing race header from Gressan-Pila-DH HTML file."""
@@ -148,6 +151,7 @@ class TestRaceResultsScraper:
         assert race_info['discipline'] == Discipline.DH
         assert race_info['race_category'] == 'FIS'
         assert race_info['location'] == 'Gressan - Pila'
+        assert race_info['gender'] == Gender.F
 
     def test_parse_fis_race_header_gressan_pila_tra(self) -> None:
         """Test parsing race header from Gressan-Pila-TRA HTML file."""
@@ -165,6 +169,7 @@ class TestRaceResultsScraper:
         assert race_info['discipline'] == Discipline.DH  # Downhill Training
         assert race_info['race_category'] == 'Training'
         assert race_info['location'] == 'Gressan - Pila'
+        assert race_info['gender'] == Gender.F
 
     def test_parse_course_details_loaf_nor_am_sl(self) -> None:
         """Test parsing course details from LoafNorAMSL HTML file."""
@@ -440,6 +445,7 @@ class TestRaceResultsScraperDatabase:
         assert race.race_codex == 1970
         assert race.total_starters == len(results)
         assert race.nation == 'USA'
+        assert race.gender == Gender.M
 
         count = scraper._save_race_results(race, results)
         assert count == len(results)
@@ -687,6 +693,17 @@ class TestRaceResultsScraperHelpers:
         freezer.move_to("2024-06-30")
         assert scraper.get_current_season() == 2024
 
+    def test_parse_gender(self, scraper: RaceResultsScraper):
+        """Test gender parsing."""
+        assert scraper._parse_gender("Women's") == Gender.F
+        assert scraper._parse_gender("Men's") == Gender.M
+        assert scraper._parse_gender("Mixed") == Gender.A
+        assert scraper._parse_gender("") is None
+        assert scraper._parse_gender('invalid') is None
+        assert scraper._parse_gender('mixed') == Gender.A
+        assert scraper._parse_gender('women') == Gender.F
+        assert scraper._parse_gender('men') == Gender.M
+
 class TestPointsListAutoIngestion:
     """Test points list auto-ingestion functionality."""
     
@@ -767,7 +784,7 @@ class TestRaceResultsScraperIntegration:
         
         # Test that the Race model has all required fields
         required_race_fields = [
-            'fis_db_id', 'race_codex', 'race_date', 'discipline', 'race_name', 
+            'fis_db_id', 'race_codex', 'race_date', 'discipline', 'race_name', 'gender',
             'location', 'win_time', 'penalty', 'race_category', 'total_starters', 'total_finishers'
         ]
         

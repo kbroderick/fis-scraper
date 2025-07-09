@@ -40,6 +40,10 @@ This Python application scrapes and analyzes FIS (International Ski Federation) 
    **CAUTION**
    This will attempt to ingest all available FIS points lists since 2002. As of this writing, there
    are 331 available. Expect this to take a while.
+
+   Testing has been somewhat irregular; I suspect that there might be some sort of anti-bot protection on the FIS site, as loading the FIS Points List page in a browser prior to execution correlated with scraping success in some cases (causation is not determined.) List of FIS Points Lists is at:
+   https://www.fis-ski.com/DB/alpine-skiing/fis-points-lists.html
+
    ```bash
    python main.py points
    ```
@@ -49,10 +53,10 @@ This Python application scrapes and analyzes FIS (International Ski Federation) 
    Discover and scrape race results:
    ```bash
    # Discover races in current season
-   python -m src.fis_scraper.scrapers.race_result  --discover-only
+   python -m src.fis_scraper.scrapers.race_results_scraper  --discover-only
       
    # Scrape specific race by ID
-   python -m src.fis_scraper.scrapers.race_result --race-id 12345
+   python -m src.fis_scraper.scrapers.race_results_scraper --race-id 12345
    ```
 
    **Important:** To run the race results scraper, you must use the `-m` flag to run it as a module. This is required because the code uses relative imports, which do not work if you run the script directly.
@@ -63,8 +67,8 @@ This Python application scrapes and analyzes FIS (International Ski Federation) 
    ```
 
    **Command Line Arguments**
-   - `--race-category`  (e.g., FIS, WC, EC, UNI, NC, CIT, CUP)
-   - `--season`         (e.g., 2025)
+   - `--race-category`  (e.g., FIS, WC, EC, UNI, NC, CIT, CUP, etc)
+   - `--season`         (e.g., 2025 for 2024/2025 season ending 30 Jun 25)
    - `--race-id`        (scrape a specific race by ID)
    - `--discover-only`  (only discover races, do not scrape results)
    - `--verbose`        (enable verbose logging)
@@ -75,18 +79,20 @@ This Python application scrapes and analyzes FIS (International Ski Federation) 
    ```
 
    TODO:
+      - update Races to record gender of event
       - allow for CSV input of roster for eval
       - create per-athlete analysis (points, rank, and results over time)
       - create per-roster analysis (points, rank and result over time; particular   attention to delta in rank between selection and graduation)
       - allow for web scraping to generate roster
       - web interface
       - explore hosting options
+      - consider supporting Team Parallel (see below)
 
    Performance concerns:
 
       As noted, ingestion defaults to processing all available lists since 2002.
       
-      In the dev environment, each list takes approximately 30-40 seconds; ingesting all 331 lists takes a while. The current ingestion is hugely inefficienct because it ensures an Athlete to exist before creating each points record; batching all athlete creation and then all points record import, or perhaps using one of the identifiers already in the FIS DB rather than our own row id (this would have implications for being able to expand app for NGB-level data, however.)
+      In the dev environment, each list takes approximately 30-40 seconds; ingesting all 332 lists takes a while.
 
    Cached points lists:
 
@@ -184,3 +190,29 @@ Built with cursor by Kevin Broderick / ktb@kevinbroderick.com
 ## Useful resources
 
 FIS "RULES FOR THE FIS ALPINE POINTS" (probably somewhere on FIS site as well): https://www.skidor.com/download/18.241e27d2184fa16745750a75/1670914704863/FIS_Points_Rules_Alpine_June_22_E.pdf
+
+## Team Parallel
+
+Team Parallel events are currently not supported; the small number of such events makes the analytical value small, and they would take special-case handling to parse.
+
+For example, in season 2025:
+JWC Tarvisio:
+https://www.fis-ski.com/DB/general/results.html?sectorcode=AL&raceid=123701
+(lists team with participants, time and win/loss color for final round)
+
+University event at Torino:
+https://www.fis-ski.com/DB/general/results.html?sectorcode=AL&raceid=126716
+(lists teams only)
+
+Chilean even Trofeu Borrufa 2025
+https://www.fis-ski.com/DB/general/results.html?sectorcode=AL&raceid=123678
+(no results listed, PDF download has results)
+
+Saalbach World Champs
+https://www.fis-ski.com/DB/general/results.html?sectorcode=AL&raceid=122881
+Same as JWC, full results list with participants and times
+
+Bakuriani EYOF
+https://www.fis-ski.com/DB/general/event-details.html?sectorcode=AL&eventid=55954&seasoncode=2025
+Sames as Chilean event, no actual results
+
