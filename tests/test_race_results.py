@@ -668,6 +668,8 @@ class TestRaceResultsScraperHelpers:
         assert scraper._get_result_status("Disqualified 1st Run") == "DSQ1"
         assert scraper._get_result_status("Did Not Start 2nd Run") == "DNS2"
         assert scraper._get_result_status("Did Not Finish 1st Run") == "DNF1"
+        assert scraper._get_result_status("Did Not Qualify For 2nd Run") == "DNQ2"
+        assert scraper._get_result_status("Not Permitted To Start 2nd Run") == "NPS2"
         assert scraper._get_result_status("") is None
         assert scraper._get_result_status("Did Not Finish") == "DNF"
 

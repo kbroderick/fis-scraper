@@ -33,7 +33,7 @@ class PointsListScraper:
     
     POINTS_LISTS_URL: str = "https://www.fis-ski.com/DB/alpine-skiing/fis-points-lists.html"
     DATA_FOLDER: str = "data" # local folder for file storage, lists in points_lists subfolder
-    
+
     def __init__(self) -> None:
         """Initialize the PointsListScraper with a database session."""
         self.session: Session = get_session()
@@ -187,6 +187,7 @@ class PointsListScraper:
         except (ValueError, AttributeError):
             pass
         return None, None
+  
     
     def download_and_process_points_list(self,
                                          points_list_data: Dict[str, Union[str, date]]) -> bool:
@@ -246,15 +247,6 @@ class PointsListScraper:
         Returns:
             Athlete: Athlete object
         """
-        birth_year = None
-        birth_date = None
-        try:
-            if not pd.isna(row.Birthdate):
-                birth_date = pd.to_datetime(row.Birthdate).date()
-                birth_year = birth_date.year
-        except (DateParseError, OverflowError, ParserError, ValueError):
-            birth_year = self._int_or_none(row.Birthyear)
-
         athlete = Athlete(
             fis_id=row.Fiscode,
             fis_db_id=row.Competitorid,
@@ -262,8 +254,8 @@ class PointsListScraper:
             first_name=row.Firstname,
             nation_code=row.Nationcode,
             gender=Gender.M if row.Gender == 'M' else Gender.F,
-            birth_date=birth_date,
-            birth_year=birth_year,
+            birth_date=self._date_or_none(row.Birthdate, '%Y-%m-%d'),
+            birth_year=self._int_or_none(row.Birthyear),
             ski_club=self._str_or_none(row.Skiclub),
             national_code=self._str_or_none(row.Nationalcode)
         )
@@ -286,9 +278,11 @@ class PointsListScraper:
         if 'ACpoints' in row:
             ac_points = self._float_or_none(row.ACpoints)
             ac_rank = self._int_or_none(row.ACpos)
+            ac_status = self._str_or_none(row.ACSta)
         else:
             ac_points = None
             ac_rank = None
+            ac_status = None
 
         return AthletePoints(
                     athlete_id=athlete.id,
@@ -303,7 +297,13 @@ class PointsListScraper:
                     sg_rank=self._int_or_none(row.SGpos),
                     dh_rank=self._int_or_none(row.DHpos),
                     ac_rank=ac_rank,
-                    calculated_date=pd.to_datetime(row.Calculationdate,dayfirst=True).date()
+                    calculated_date=self._date_or_none(row.Calculationdate, '%d-%m-%Y'),
+                    sl_status=self._str_or_none(row.SLSta),
+                    gs_status=self._str_or_none(row.GSSta),
+                    sg_status=self._str_or_none(row.SGSta),
+                    dh_status=self._str_or_none(row.DHSta),
+                    ac_status=ac_status,
+                    ski_club=self._str_or_none(row.Skiclub),
                 )
 
     def _save_points_list(self, points_list_data: Dict[str, Union[str, date]],
@@ -389,6 +389,21 @@ class PointsListScraper:
             return None
         return None
 
+    def _date_or_none(self, value: str, format: str) -> Optional[date]:
+        """Convert string to date if it's a date, otherwise return None.
+        
+        Args:
+            value: String value
+            format: Format of the date string
+        """
+        try:
+            date = pd.to_datetime(value, format=format).date()
+            if date is not pd.NaT:
+                return date
+        except (TypeError, ValueError, AttributeError):
+            return None
+        return None
+    
     def _get_list_url(self, sectorcode: str, seasoncode: str, listid: Optional[str] = None) -> str:
         """Get the URL for a specific points list.
         
@@ -509,7 +524,6 @@ def main(start_date: Optional[date] = None,
                 logger.info(f"Successfully processed points list: {points_list['name']}")
             else:
                 logger.error(f"Failed to process points list: {points_list['name']}")
-                breakpoint
         
         logger.info("Points list scraping completed")
         

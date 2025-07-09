@@ -75,8 +75,7 @@ This Python application scrapes and analyzes FIS (International Ski Federation) 
    ```
 
    TODO:
-      - figure out why nation isn't getting saved to DB
-      - add handling for discipline-level sta (status) fields in points list, ingest club data
+      - explore if points list ingest can be done without per-athlete .commit()
       - allow for CSV input of roster for eval
       - create per-athlete analysis (points, rank, and results over time)
       - create per-roster analysis (points, rank and result over time; particular   attention to delta in rank between selection and graduation)
@@ -158,6 +157,15 @@ The race results scraper now stores the FIS race ID (`fis_db_id`) for each resul
 - `points_list_id`: Foreign key to Points Lists
 - `sl_points`, `gs_points`, `sg_points`, `dh_points`, `ac_points`: Discipline points
 - `sl_rank`, `gs_rank`, `sg_rank`, `dh_rank`, `ac_rank`: World rankings
+- `sl_status`, `gs_status`, `sg_status`, `dh_status`, `ac_status`: points status per discipline; c.f. "Rules for the FIS Alpine Points'—
+   - '#'-> injury status protection
+   - '*' Base list (i.e. skier has not beat BL points twice in current season)
+   - '+' only one result and no base list points; in base list -> only one
+      result from past season (penalized 20% of single result)
+   - '>' no results in event during last season; penalized 50% of BL
+   - '-' injured but real points
+   - 'C' points confirmation
+
 
 ## Testing
 
@@ -173,3 +181,7 @@ MIT License
 ## Creation
 
 Built with cursor by Kevin Broderick / ktb@kevinbroderick.com
+
+## Useful resources
+
+FIS "RULES FOR THE FIS ALPINE POINTS" (probably somewhere on FIS site as well): https://www.skidor.com/download/18.241e27d2184fa16745750a75/1670914704863/FIS_Points_Rules_Alpine_June_22_E.pdf

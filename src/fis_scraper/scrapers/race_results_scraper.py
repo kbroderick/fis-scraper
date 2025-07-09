@@ -616,6 +616,10 @@ class RaceResultsScraper:
             return f"DNF{run}"
         elif 'did not start' in text:
             return f"DNS{run}"
+        elif 'did not qualify' in text:
+            return f"DNQ{run}"
+        elif 'not permitted to start' in text:
+            return f"NPS{run}"
         return None
 
     def _get_winner_info(self, row: Tag, race_id: int) -> Dict[str, Any]:

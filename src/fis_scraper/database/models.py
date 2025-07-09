@@ -165,10 +165,19 @@ class AthletePoints(Base):
         gs_points (Optional[float]): Giant Slalom points
         sg_points (Optional[float]): Super-G points
         dh_points (Optional[float]): Downhill points
+        ac_points (Optional[float]): Alpine Combined points
         sl_rank (Optional[int]): World rank position in Slalom
         gs_rank (Optional[int]): World rank position in Giant Slalom
         sg_rank (Optional[int]): World rank position in Super-G
         dh_rank (Optional[int]): World rank position in Downhill
+        ac_rank (Optional[int]): World rank position in Alpine Combined
+        sl_status (Optional[str]): status from list; */+/> see README
+        gs_status (Optional[str]): status from list; */+/> see README
+        sg_status (Optional[str]): status from list; */+/> see README
+        dh_status (Optional[str]): status from list; */+/> see README
+        ac_status (Optional[str]): status from list; */+/> see README
+        calculated_date (Optional[date]): Date of points calculation
+        ski_club (Optional[str]): Athlete's ski club
         athlete (Athlete): Related Athlete object
         points_list (PointsList): Related PointsList object
     """
@@ -187,7 +196,13 @@ class AthletePoints(Base):
     sg_rank: Mapped[Optional[int]] = Column(Integer)  # World rank position in Super-G
     dh_rank: Mapped[Optional[int]] = Column(Integer)  # World rank position in Downhill
     ac_rank: Mapped[Optional[int]] = Column(Integer)  # World rank position in Alpine Combined
+    sl_status: Mapped[Optional[str]] = Column(String) # points status from list
+    gs_status: Mapped[Optional[str]] = Column(String) #  see README
+    sg_status: Mapped[Optional[str]] = Column(String) 
+    dh_status: Mapped[Optional[str]] = Column(String)
+    ac_status: Mapped[Optional[str]] = Column(String)
     calculated_date: Mapped[Optional[Date]] = Column(Date)
-    
+    ski_club: Mapped[Optional[str]] = Column(String)
+
     athlete: Mapped["Athlete"] = relationship("Athlete", back_populates="points")
     points_list: Mapped["PointsList"] = relationship("PointsList", back_populates="athlete_points")
