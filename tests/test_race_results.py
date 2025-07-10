@@ -171,6 +171,23 @@ class TestRaceResultsScraper:
         assert race_info['location'] == 'Gressan - Pila'
         assert race_info['gender'] == Gender.F
 
+    def test_parse_fis_race_header_bormio_sg(self) -> None:
+        """Test parsing race header from BormioSG HTML file."""
+        scraper = RaceResultsScraper()
+        
+        with open('tests/data/html/races/Bormio-SG-20241229-SG-0021-122794.html', 'r', encoding='utf-8') as f:
+            html_content = f.read()
+        soup = BeautifulSoup(html_content, 'html.parser')
+        race_info = scraper._parse_fis_race_header(soup, 122794)
+        assert race_info['gender'] == Gender.M
+        assert race_info['discipline'] == Discipline.SG
+        assert race_info['race_category'] == 'Audi FIS Ski World Cup'
+        assert race_info['location'] == 'Bormio'
+        assert race_info['race_codex'] == 21
+        assert race_info['race_name'] == 'Bormio (ITA) 2024/2025'
+        assert race_info['race_date'] == date(2024, 12, 29)
+
+
     def test_parse_course_details_loaf_nor_am_sl(self) -> None:
         """Test parsing course details from LoafNorAMSL HTML file."""
         scraper = RaceResultsScraper()
@@ -350,7 +367,7 @@ class TestRaceResultsScraper:
         assert result['run1_time'] == 78.86
         assert result['run2_time'] == None
         assert result['result'] == None
-        assert result['points'] == 33.63
+        assert result['points'] == 33.63      
 
     def test_get_non_finishers(self, scraper: RaceResultsScraper):
         """Test getting non-finishers from HTML file."""
@@ -620,12 +637,21 @@ class TestRaceResultsScraperHelpers:
         """Test discipline parsing for Giant Slalom."""
         result = scraper._parse_discipline('GS')
         assert result == Discipline.GS
+
+    def test_parse_discipline_sg_full_name(self, scraper: RaceResultsScraper) -> None:
+        """Test discipline parsing for Super-G."""
+        assert scraper._parse_discipline('Super-G') == Discipline.SG
+        assert scraper._parse_discipline('Super G') == Discipline.SG
     
     def test_parse_discipline_full_name(self, scraper: RaceResultsScraper) -> None:
         """Test discipline parsing with full name."""
         result = scraper._parse_discipline('Slalom')
         assert result == Discipline.SL
     
+    def test_parse_discipline_training(self, scraper: RaceResultsScraper) -> None:
+        """Test discipline parsing for training."""
+        assert scraper._parse_discipline('Downhill Training') == Discipline.DH
+
     def test_parse_discipline_invalid(self, scraper: RaceResultsScraper) -> None:
         """Test discipline parsing with invalid discipline."""
         result = scraper._parse_discipline('Invalid')

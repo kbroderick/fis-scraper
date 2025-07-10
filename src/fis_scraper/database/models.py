@@ -83,7 +83,7 @@ class Race(Base):
 
     id: Mapped[int] = Column(Integer, primary_key=True)
     fis_db_id: Mapped[Optional[int]] = Column(Integer)  # FIS race ID
-    race_codex: Mapped[Optional[str]] = Column(String)  # FIS competition codex
+    race_codex: Mapped[Optional[int]] = Column(Integer)  # FIS competition codex
     race_date: Mapped[Date] = Column(Date, nullable=False)
     discipline: Mapped[Discipline] = Column(Enum(Discipline), nullable=False)
     race_name: Mapped[Optional[str]] = Column(String)

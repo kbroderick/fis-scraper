@@ -11,8 +11,8 @@ This Python application scrapes and analyzes FIS (International Ski Federation) 
 - Automated scraping of FIS points lists
 - Race results scraping with detailed timing data
 - Individual athlete result tracking
-- Performance analysis over time
-- World ranking and FIS points trend analysis
+- Performance analysis over time (TODO)
+- World ranking and FIS points trend analysis (TODO)
 - Postgres database storage
 
 ## Installation
@@ -39,7 +39,7 @@ This Python application scrapes and analyzes FIS (International Ski Federation) 
 
    **CAUTION**
    This will attempt to ingest all available FIS points lists since 2002. As of this writing, there
-   are 331 available. Expect this to take a while.
+   are 332 available. Expect this to take a while.
 
    Testing has been somewhat irregular; I suspect that there might be some sort of anti-bot protection on the FIS site, as loading the FIS Points List page in a browser prior to execution correlated with scraping success in some cases (causation is not determined.) List of FIS Points Lists is at:
    https://www.fis-ski.com/DB/alpine-skiing/fis-points-lists.html
@@ -79,14 +79,13 @@ This Python application scrapes and analyzes FIS (International Ski Federation) 
    ```
 
    TODO:
-      - update Races to record gender of event
       - allow for CSV input of roster for eval
       - create per-athlete analysis (points, rank, and results over time)
       - create per-roster analysis (points, rank and result over time; particular   attention to delta in rank between selection and graduation)
       - allow for web scraping to generate roster
       - web interface
       - explore hosting options
-      - consider supporting Team Parallel (see below)
+      - consider supporting Team Parallel, Team combined (see below)
 
    Performance concerns:
 
@@ -191,28 +190,14 @@ Built with cursor by Kevin Broderick / ktb@kevinbroderick.com
 
 FIS "RULES FOR THE FIS ALPINE POINTS" (probably somewhere on FIS site as well): https://www.skidor.com/download/18.241e27d2184fa16745750a75/1670914704863/FIS_Points_Rules_Alpine_June_22_E.pdf
 
-## Team Parallel
+## Team events
 
-Team Parallel events are currently not supported; the small number of such events makes the analytical value small, and they would take special-case handling to parse.
+Not currently supported. Ingestion will be skipped because the discipline won't parse into one that we're expecting, so it doesn't actively break anything, but we won't be able to consider those events for further analysis.
 
-For example, in season 2025:
-JWC Tarvisio:
-https://www.fis-ski.com/DB/general/results.html?sectorcode=AL&raceid=123701
-(lists team with participants, time and win/loss color for final round)
+## Team combined
+This one may be worth adding support for, but determining how to store and analyze data will depend on whether or not FIS presentation of the same is consistent.
 
-University event at Torino:
-https://www.fis-ski.com/DB/general/results.html?sectorcode=AL&raceid=126716
-(lists teams only)
+## Team parallel
+The small number of such events makes the analytical value small, and they would take special-case handling to parse.
 
-Chilean even Trofeu Borrufa 2025
-https://www.fis-ski.com/DB/general/results.html?sectorcode=AL&raceid=123678
-(no results listed, PDF download has results)
-
-Saalbach World Champs
-https://www.fis-ski.com/DB/general/results.html?sectorcode=AL&raceid=122881
-Same as JWC, full results list with participants and times
-
-Bakuriani EYOF
-https://www.fis-ski.com/DB/general/event-details.html?sectorcode=AL&eventid=55954&seasoncode=2025
-Sames as Chilean event, no actual results
-
+For example, in season 2025, only two events (JWC Tarvisio /raceid 123701 and Saalbach World Championships, race 122881) have full results; one event has partial results listed; and two show "no results" but a PDF is available.

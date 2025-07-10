@@ -330,11 +330,11 @@ class RaceResultsScraper:
         if not codex:
             codex_span = soup.find('span', string=lambda t: t and 'CODEX:' in t)
             if codex_span:
-                m = re.search(r'CODEX:\s*(\d+)', codex_span.text)
+                m = re.search(r'CODEX:\s*(\d{4})', codex_span.text)
                 if m:
-                    codex = int(m.group(1))
+                    codex = m.group(1)
         if codex:
-            race_info['race_codex'] = codex
+            race_info['race_codex'] = int(codex)
         
         # Parse date from event header
         date_element = soup.find('div', class_='timezone-date')
@@ -709,12 +709,12 @@ class RaceResultsScraper:
             return None
         
         # Clean the discipline string
-        discipline_str = discipline_str.strip()
+        discipline_str = discipline_str.strip().upper()
         
         # Handle training variations by extracting the base discipline
-        if 'Training' in discipline_str:
+        if 'TRAINING' in discipline_str:
             # Extract the base discipline from "Downhill Training", "Giant Slalom Training", etc.
-            base_discipline = discipline_str.replace(' Training', '').strip()
+            base_discipline = discipline_str.replace(' TRAINING', '').strip()
             discipline_str = base_discipline
             
         discipline_map = {
@@ -723,11 +723,12 @@ class RaceResultsScraper:
             'SG': Discipline.SG,
             'DH': Discipline.DH,
             'AC': Discipline.AC,
-            'Slalom': Discipline.SL,
-            'Giant Slalom': Discipline.GS,
-            'Super-G': Discipline.SG,
-            'Downhill': Discipline.DH,
-            'Alpine Combined': Discipline.AC
+            'SLALOM': Discipline.SL,
+            'GIANT SLALOM': Discipline.GS,
+            'SUPER-G': Discipline.SG,
+            'DOWNHILL': Discipline.DH,
+            'ALPINE COMBINED': Discipline.AC,
+            'SUPER G': Discipline.SG
         }
         
         return discipline_map.get(discipline_str)
