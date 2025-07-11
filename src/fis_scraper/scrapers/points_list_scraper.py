@@ -136,7 +136,7 @@ class PointsListScraper:
         """
         # First try to match regular points list
         points_list_regex = \
-            r"(\d.+ FIS points list \d\d\d\d.\d\d).+(\d\d-\d\d-\d\d\d\d).+(\d\d-\d\d-\d\d\d\d)"
+            r"(\d.+ FIS points list\s?\d{4}.\d{2,4})\s+(\d\d-\d\d-\d{4})\s+(\d\d-\d\d-\d{4})"
         points_list_match = re.search(points_list_regex, text, re.DOTALL + re.IGNORECASE)
         if points_list_match:
             return points_list_match[1], \

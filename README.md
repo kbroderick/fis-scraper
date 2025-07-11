@@ -39,7 +39,7 @@ This Python application scrapes and analyzes FIS (International Ski Federation) 
 
    **CAUTION**
    This will attempt to ingest all available FIS points lists since 2002. As of this writing, there
-   are 332 available. Expect this to take a while.
+   are 333 available. Expect this to take a while.
 
    Testing has been somewhat irregular; I suspect that there might be some sort of anti-bot protection on the FIS site, as loading the FIS Points List page in a browser prior to execution correlated with scraping success in some cases (causation is not determined.) List of FIS Points Lists is at:
    https://www.fis-ski.com/DB/alpine-skiing/fis-points-lists.html
@@ -78,6 +78,8 @@ This Python application scrapes and analyzes FIS (International Ski Federation) 
    python -m src.fis_scraper.scrapers.race_results_scraper --help
    ```
 
+   Note that some race events have races from multiple categories—e.g. combining SAC and Chilean NC events in 55641. Those races will show up in both SAC and NC categories during discovery, but each will be ingested only once and recorded with the appropriate category in the local DB.
+
    TODO:
       - allow for CSV input of roster for eval
       - create per-athlete analysis (points, rank, and results over time)
@@ -91,7 +93,7 @@ This Python application scrapes and analyzes FIS (International Ski Federation) 
 
       As noted, ingestion defaults to processing all available lists since 2002.
       
-      In the dev environment, each list takes approximately 30-40 seconds; ingesting all 332 lists takes a while.
+      In the dev environment, each list takes approximately 30-40 seconds; ingesting all 333 lists takes a while.
 
    Cached points lists:
 
@@ -201,3 +203,8 @@ This one may be worth adding support for, but determining how to store and analy
 The small number of such events makes the analytical value small, and they would take special-case handling to parse.
 
 For example, in season 2025, only two events (JWC Tarvisio /raceid 123701 and Saalbach World Championships, race 122881) have full results; one event has partial results listed; and two show "no results" but a PDF is available.
+
+## Scraping progress notes
+
+--check for ERROR reports in log
+--2023-04-09 -> 2023-04-19 no valid points list? 20th 2022/23, list 366
