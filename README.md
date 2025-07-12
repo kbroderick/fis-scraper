@@ -83,33 +83,33 @@ This Python application scrapes and analyzes FIS (International Ski Federation) 
 
    Note that some race events have races from multiple categories—e.g. combining SAC and Chilean NC events in 55641. Those races will show up in both SAC and NC categories during discovery, but each will be ingested only once and recorded with the appropriate category in the local DB.
 
-## TODO:
-      - allow for CSV input of roster for eval
-      - create per-athlete analysis (points, rank, and results over time)
-      - create per-roster analysis (points, rank and result over time; particular   attention to delta in rank between selection and graduation)
-      - allow for web scraping to generate roster
-      - web interface
-      - consider supporting Team Parallel, Team combined (see below)
+## TODO
+   - allow for CSV input of roster for eval
+   - create per-athlete analysis (points, rank, and results over time)
+   - create per-roster analysis (points, rank and result over time; particular   attention to delta in rank between selection and graduation)
+   - allow for web scraping to generate roster
+   - web interface
+   - consider supporting Team Parallel, Team combined (see below)
 
 ## Functionality notes
-   ### File paths, DB, and such
-      File paths are hardcoded relative to program root. I may get around to making this configurable in the future; if this is important to you, please let me know.
+ ### File paths, DB, and such
+   File paths are hardcoded relative to program root. I may get around to making this configurable in the future; if this is important to you, please let me know.
 
-      `data/points_list` -- cached points list downloads
+   `data/points_list` -- cached points list downloads
       
-      App expects DB to be `fis_data` and test DB to be `fis_data_test`. You can configure another DB name if you prefer, but munging for test environment will break (c.f. `connection.py`) and pytest will want to use your production DB.
+   App expects DB to be `fis_data` and test DB to be `fis_data_test`. You can configure another DB name if you prefer, but munging for test environment will break (c.f. `connection.py`) and pytest will want to use your production DB.
 
-   ### Performance concerns:
+ ### Performance concerns:
 
-      As noted, ingestion defaults to processing all available lists since 2002.
+   As noted, ingestion defaults to processing all available lists since 2002.
       
-      In the dev environment, each list takes approximately 30-40 seconds; ingesting all 333 lists takes a while.
+   In the dev environment, each list takes approximately 30-40 seconds; ingesting all 333 lists takes a while.
 
-      Scraping an entire season of race results, likewise, will take significant time.
+   Scraping an entire season of race results, likewise, will take significant time.
 
-   ### Cached points lists:
+ ### Cached points lists:
 
-      For efficiency, the system retains a copy of the CSV points list in the data/ folder after downloading it. If the data is removed from the database, re-ingestion will happen from the saved file. Should a saved file be corrupted, simply delete it and it will be downloaded again (as long as the directory of points lists on the FIS site still includes it).
+   For efficiency, the system retains a copy of the CSV points list in the data/ folder after downloading it. If the data is removed from the database, re-ingestion will happen from the saved file. Should a saved file be corrupted, simply delete it and it will be downloaded again (as long as the directory of points lists on the FIS site still includes it).
 
 
 ## Project Structure
