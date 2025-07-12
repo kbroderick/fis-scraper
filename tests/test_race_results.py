@@ -28,7 +28,22 @@ class TestRaceResultsScraper:
         """Test RaceResultsScraper initialization."""
         assert scraper.session is not None
         assert scraper.RESULTS_URL == f"{DATA_URL}/alpine-skiing/results.html"
-    
+
+    def test_process_events(self, scraper: RaceResultsScraper) -> None:
+        """Test process_events method."""
+        events = ['https://www.fis-ski.com/DB/general/event-details.html?sectorcode=AL&eventid=57962&seasoncode=2026']
+
+        with patch.object(scraper, 'find_races_by_event', return_value=[127284, 127285, 127286]), \
+             patch.object(scraper, 'scrape_race_results', return_value=(Mock(), Mock())), \
+             patch.object(scraper, 'record_race', side_effect=[77, 0, -1]):
+            recorded_races, no_additional_results, errors = scraper.process_events(events)
+            assert scraper.scrape_race_results.call_count == 3
+            assert scraper.record_race.call_count == 3
+
+        assert recorded_races == 1
+        assert no_additional_results == 1
+        assert errors == 1
+
     def test_scrape_race_results(self, scraper: RaceResultsScraper):
         """
         Test scraping race results from actual HTML file, verify winner,
