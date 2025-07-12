@@ -32,7 +32,7 @@ This Python application scrapes and analyzes FIS (International Ski Federation) 
 
 ## Usage
 
-1. Configure database settings in `.env` file
+1. Configure database settings in `.env` file (using default name of `fis_data` strongly recommended)
 2. Run the scraper:
 
    **CAUTION**
@@ -83,7 +83,7 @@ This Python application scrapes and analyzes FIS (International Ski Federation) 
 
    Note that some race events have races from multiple categories—e.g. combining SAC and Chilean NC events in 55641. Those races will show up in both SAC and NC categories during discovery, but each will be ingested only once and recorded with the appropriate category in the local DB.
 
-   TODO:
+## TODO:
       - allow for CSV input of roster for eval
       - create per-athlete analysis (points, rank, and results over time)
       - create per-roster analysis (points, rank and result over time; particular   attention to delta in rank between selection and graduation)
@@ -91,7 +91,15 @@ This Python application scrapes and analyzes FIS (International Ski Federation) 
       - web interface
       - consider supporting Team Parallel, Team combined (see below)
 
-   Performance concerns:
+## Functionality notes
+   ### File paths, DB, and such
+      File paths are hardcoded relative to program root. I may get around to making this configurable in the future; if this is important to you, please let me know.
+
+      `data/points_list` -- cached points list downloads
+      
+      App expects DB to be `fis_data` and test DB to be `fis_data_test`. You can configure another DB name if you prefer, but munging for test environment will break (c.f. `connection.py`) and pytest will want to use your production DB.
+
+   ### Performance concerns:
 
       As noted, ingestion defaults to processing all available lists since 2002.
       
@@ -99,14 +107,10 @@ This Python application scrapes and analyzes FIS (International Ski Federation) 
 
       Scraping an entire season of race results, likewise, will take significant time.
 
-   Cached points lists:
+   ### Cached points lists:
 
       For efficiency, the system retains a copy of the CSV points list in the data/ folder after downloading it. If the data is removed from the database, re-ingestion will happen from the saved file. Should a saved file be corrupted, simply delete it and it will be downloaded again (as long as the directory of points lists on the FIS site still includes it).
 
-3. Analyze athlete performance: (this doesn't work yet)
-   ```bash
-   python -m fis_scraper.analysis.performance
-   ```
 
 ## Project Structure
 
@@ -123,51 +127,19 @@ fis-scraper/
 └── tests/               # Test suite
 |-- data/
 |     |----- points_lists # saved points lists
+|     |----- html         # saved HTML for parsing tests
+|             |-- races   # saved race results pages for parsing tests
 ```
 
 ## Database Schema
 
-The application uses the following key database models:
+Each PointsList has many AthletePoints
+Each contested Race has many RaceResults
+Each Athlete has many AthletePoints and many RaceResults
 
-### Athletes
-- `id`: Primary key
-- `fis_id`: FIS ID
-- `fis_db_id`: FIS DB ID for API calls
-- `last_name`, `first_name`: Athlete name
-- `nation_code`: 3-letter country code
-- `gender`: Athlete gender
-- `birth_date`, `birth_year`: Birth information
+See `src.fis_scraper.database.models.py` for details. Most fields should be reasonably self-explanatory.
 
-### Race Results
-- `id`: Primary key
-- `athlete_id`: Foreign key to Athletes
-- `fis_db_id`: FIS race ID (from raceid param in FIS URLs)
-- `race_date`: Date of the race
-- `discipline`: Race discipline (SL, GS, SG, DH, AC)
-- `points`: Calculated FIS points
-- `penalty`: Calculated race penalty (point value for winner)
-- `race_points`: Race points for finish position
-- `rank`: Finish position
-- `win_time`, `racer_time`: Timing data
-- `race_name`, `location`: Race information
-- `race_category`: Race category (WC, EC, FIS, UNI, etc.)
-
-The race results scraper now stores the FIS race ID (`fis_db_id`) for each result, matching the `raceid` parameter from FIS URLs.
-
-### Points Lists
-- `id`: Primary key
-- `valid_from`, `valid_to`: Validity period
-- `season`: Season identifier
-- `listid`: FIS list ID
-- `name`: Points list name
-
-### Athlete Points
-- `id`: Primary key
-- `athlete_id`: Foreign key to Athletes
-- `points_list_id`: Foreign key to Points Lists
-- `sl_points`, `gs_points`, `sg_points`, `dh_points`, `ac_points`: Discipline points
-- `sl_rank`, `gs_rank`, `sg_rank`, `dh_rank`, `ac_rank`: World rankings
-- `sl_status`, `gs_status`, `sg_status`, `dh_status`, `ac_status`: points status per discipline; c.f. "Rules for the FIS Alpine Points'—
+Of note as not self-explanatory, `sl_status`, `gs_status`, `sg_status`, `dh_status`, `ac_status` are points status per discipline; c.f. "Rules for the FIS Alpine Points'—
    - '#'-> injury status protection
    - '*' Base list (i.e. skier has not beat BL points twice in current season)
    - '+' only one result and no base list points; in base list -> only one
@@ -200,10 +172,13 @@ FIS "RULES FOR THE FIS ALPINE POINTS" (probably somewhere on FIS site as well): 
 
 Not currently supported. Ingestion will be skipped because the discipline won't parse into one that we're expecting, so it doesn't actively break anything, but we won't be able to consider those events for further analysis.
 
-## Team combined
+### Team combined
 This one may be worth adding support for, but determining how to store and analyze data will depend on whether or not FIS presentation of the same is consistent.
 
-## Team parallel
+### Team parallel
 The small number of such events makes the analytical value small, and they would take special-case handling to parse.
 
 For example, in season 2025, only two events (JWC Tarvisio /raceid 123701 and Saalbach World Championships, race 122881) have full results; one event has partial results listed; and two show "no results" but a PDF is available.
+
+## Also not supported
+City Events
