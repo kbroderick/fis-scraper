@@ -4,15 +4,11 @@ This Python application scrapes and analyzes FIS (International Ski Federation) 
 - Historical FIS points lists since 2002
 - Individual athlete results and performance
 - Race results with detailed timing and points data
-- Performance tracking in technical (SL, GS) and speed (SG, DH) disciplines
 
 ## Features
 
 - Automated scraping of FIS points lists
 - Race results scraping with detailed timing data
-- Individual athlete result tracking
-- Performance analysis over time (TODO)
-- World ranking and FIS points trend analysis (TODO)
 - Postgres database storage
 
 ## Installation
@@ -29,8 +25,10 @@ This Python application scrapes and analyzes FIS (International Ski Federation) 
    ```
 4. Prep DB — create & run migrations
 
+   ```bash
    createdb fis_data
    alembic upgrade head
+   ```
 
 ## Usage
 
@@ -41,11 +39,13 @@ This Python application scrapes and analyzes FIS (International Ski Federation) 
    This will attempt to ingest all available FIS points lists since 2002. As of this writing, there
    are 333 available. Expect this to take a while.
 
-   Testing has been somewhat irregular; I suspect that there might be some sort of anti-bot protection on the FIS site, as loading the FIS Points List page in a browser prior to execution correlated with scraping success in some cases (causation is not determined.) List of FIS Points Lists is at:
-   https://www.fis-ski.com/DB/alpine-skiing/fis-points-lists.html
-
    ```bash
    python main.py points
+   ```
+
+   For more options:
+   ```bash
+   python main.py points -h
    ```
 
    **Race Results Scraping**
@@ -53,18 +53,20 @@ This Python application scrapes and analyzes FIS (International Ski Federation) 
    Discover and scrape race results:
    ```bash
    # Discover races in current season
-   python -m src.fis_scraper.scrapers.race_results_scraper  --discover-only
+   python main.py races  --discover-only
       
    # Scrape specific race by ID
-   python -m src.fis_scraper.scrapers.race_results_scraper --race-id 12345
+   python main.py races --race-id 12345
    ```
-
-   **Important:** To run the race results scraper, you must use the `-m` flag to run it as a module. This is required because the code uses relative imports, which do not work if you run the script directly.
-
+   
    **Example:**
-   ```sh
-   python -m src.fis_scraper.scrapers.race_results_scraper --race-category FIS --season 2025 --discover-only
+   ```bash
+   python main.py races --race-category WC --season 2025 --very-verbose
    ```
+   Import the 2025 World Cup events with very verbose logging.
+
+   **Notes:**
+   Parallel and team events are not supported and will show errors.
 
    **Command Line Arguments**
    - `--race-category`  (e.g., FIS, WC, EC, UNI, NC, CIT, CUP, etc)
@@ -72,10 +74,11 @@ This Python application scrapes and analyzes FIS (International Ski Federation) 
    - `--race-id`        (scrape a specific race by ID)
    - `--discover-only`  (only discover races, do not scrape results)
    - `--verbose`        (enable verbose logging)
+   - `--very-verbose`   (enable *really* verbose logging)
 
    See help for all options:
-   ```sh
-   python -m src.fis_scraper.scrapers.race_results_scraper --help
+   ```bash
+   python main.py races --help
    ```
 
    Note that some race events have races from multiple categories—e.g. combining SAC and Chilean NC events in 55641. Those races will show up in both SAC and NC categories during discovery, but each will be ingested only once and recorded with the appropriate category in the local DB.
@@ -86,7 +89,6 @@ This Python application scrapes and analyzes FIS (International Ski Federation) 
       - create per-roster analysis (points, rank and result over time; particular   attention to delta in rank between selection and graduation)
       - allow for web scraping to generate roster
       - web interface
-      - explore hosting options
       - consider supporting Team Parallel, Team combined (see below)
 
    Performance concerns:
@@ -94,6 +96,8 @@ This Python application scrapes and analyzes FIS (International Ski Federation) 
       As noted, ingestion defaults to processing all available lists since 2002.
       
       In the dev environment, each list takes approximately 30-40 seconds; ingesting all 333 lists takes a while.
+
+      Scraping an entire season of race results, likewise, will take significant time.
 
    Cached points lists:
 
@@ -203,8 +207,3 @@ This one may be worth adding support for, but determining how to store and analy
 The small number of such events makes the analytical value small, and they would take special-case handling to parse.
 
 For example, in season 2025, only two events (JWC Tarvisio /raceid 123701 and Saalbach World Championships, race 122881) have full results; one event has partial results listed; and two show "no results" but a PDF is available.
-
-## Scraping progress notes
-
---check for ERROR reports in log
---2023-04-09 -> 2023-04-19 no valid points list? 20th 2022/23, list 366

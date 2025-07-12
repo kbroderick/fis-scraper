@@ -101,6 +101,15 @@ class RaceResultsScraper:
                 if discover_only:
                     print(f"Race ID: {race_id}, link: {self._race_link_from_id(race_id)}")
                 else:
+                    race = self.session.query(Race).filter(Race.fis_db_id == race_id).first()
+                    if race and race.race_results:
+                        logger.debug(f"Race {race_id} already recorded with {len(race.race_results)} results; skipping.")
+                        continue
+                    elif race and not race.race_results:
+                        logger.debug(f"Race {race_id} found in database but no results; scraping.")
+                    else:
+                        logger.debug(f"Race {race_id} not found in database; scraping.")
+
                     race_info, results = self.scrape_race_results(race_id)
                     if results:
                         saved_count = self.record_race(race_info, results)
@@ -918,6 +927,25 @@ class RaceResultsScraper:
             saved_count = 0
             
         return saved_count
+    
+    @staticmethod
+    def add_arguments_to_parser(parser: argparse.ArgumentParser) -> None:
+        """Add arguments to parser.
+        
+        Args:
+            parser: ArgumentParser to add arguments to
+        """
+        parser.add_argument('--race-category', type=str, choices=[c.value for c in FisCategory],
+                           help='Filter by race category')
+        parser.add_argument('--season', type=int,
+                            help='Season to scrape (e.g., 2025); defaults to current season.')
+        parser.add_argument('--race-id', type=int, help='Scrape specific race by ID')
+        parser.add_argument('--discover-only', action='store_true', 
+                           help='Only discover races, don\'t scrape results')
+        parser.add_argument('--verbose', action='store_true',
+                           help='Verbose logging')
+        parser.add_argument('--very-verbose', action='store_true',
+                           help='Very verbose logging')
 
 def _get_argument_parser() -> argparse.ArgumentParser:
     """Get command line argument parser for race results scraper.
@@ -926,18 +954,7 @@ def _get_argument_parser() -> argparse.ArgumentParser:
         argparse.ArgumentParser: Configured argument parser
     """
     parser = argparse.ArgumentParser(description='Scrape FIS race results')
-    parser.add_argument('--race-category', type=str, choices=[c.value for c in FisCategory],
-                       help='Filter by race category')
-    parser.add_argument('--season', type=int,
-                        help='Season to scrape (e.g., 2025); defaults to current season.')
-    parser.add_argument('--race-id', type=int, help='Scrape specific race by ID')
-    parser.add_argument('--discover-only', action='store_true', 
-                       help='Only discover races, don\'t scrape results')
-    parser.add_argument('--verbose', action='store_true',
-                       help='Verbose logging')
-    parser.add_argument('--very-verbose', action='store_true',
-                       help='Very verbose logging')
-    
+    RaceResultsScraper.add_arguments_to_parser(parser)
     return parser
 
 def main(race_category: Optional[str] = None,
@@ -955,9 +972,11 @@ def main(race_category: Optional[str] = None,
         verbose: Enable verbose logging
     """
     if verbose:
-        logging.getLogger().setLevel(logging.INFO)
+        logger.setLevel(logging.INFO)
     elif very_verbose:
-        logging.getLogger().setLevel(logging.DEBUG)
+        logger.setLevel(logging.DEBUG)
+    else:
+        logger.setLevel(logging.WARNING)
     
     scraper = RaceResultsScraper()
 

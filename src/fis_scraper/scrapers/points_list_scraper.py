@@ -478,17 +478,31 @@ class PointsListScraper:
                 continue
             filtered_lists.append(points_list)
         return filtered_lists
+    
+    @staticmethod
+    def add_arguments_to_parser(parser: argparse.ArgumentParser) -> None:
+        """Add arguments to parser for points list scraper.
+        
+        Args:
+            parser: ArgumentParser to add arguments to
+        """
+        parser.add_argument("--start-date", type=date.fromisoformat, help="Start date of validity period")
+        parser.add_argument("--end-date", type=date.fromisoformat, help="End date of validity period")
+        parser.add_argument("--only-list", type=int, help="Ingest a single list by id")
+        parser.add_argument("--verbose", action="store_true", help="Verbose logging")
+        parser.add_argument("--very-verbose", action="store_true", help="Very verbose logging")
 
 def _get_argument_parser() -> argparse.ArgumentParser:
     """Get the argument parser for the points list scraper."""
     parser = argparse.ArgumentParser(description="FIS points list scraper")
-    parser.add_argument("--start-date", type=date.fromisoformat, help="Start date of validity period")
-    parser.add_argument("--end-date", type=date.fromisoformat, help="End date of validity period")
-    parser.add_argument("--only-list", type=int, help="Ingest a single list by id")
+    PointsListScraper.add_arguments_to_parser(parser)
     return parser
 
 def main(start_date: Optional[date] = None,
-         end_date: Optional[date] = None, only_list: Optional[int] = None):
+         end_date: Optional[date] = None,
+         only_list: Optional[int] = None,
+         verbose: bool = False,
+         very_verbose: bool = False):
     """
     Main entry point for the points list scraper.
 
@@ -496,13 +510,23 @@ def main(start_date: Optional[date] = None,
         start_date: Start date of validity period
         end_date: End date of validity period
         only_list: Ingest a single list by id
+        verbose: Verbose logging
+        very_verbose: Very verbose logging
     """
+    if verbose:
+        logger.setLevel(logging.INFO)
+    elif very_verbose:
+        logger.setLevel(logging.DEBUG)
+    else:
+        logger.setLevel(logging.WARNING)
+
     try:
-        logger.info("Starting FIS points list scraper")
+
+        logger.debug("Starting FIS points list scraper")
         scraper = PointsListScraper()
         
         # Get available points lists
-        logger.info("Fetching available points lists")
+        logger.debug("Fetching available points lists")
         points_lists = scraper.get_points_lists()
         logger.info(f"Found {len(points_lists)} points lists")
 
