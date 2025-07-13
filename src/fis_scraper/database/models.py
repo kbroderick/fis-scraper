@@ -11,6 +11,7 @@ class Discipline(enum.Enum):
     SG = "Super-G"
     DH = "Downhill"
     AC = "Alpine Combined"
+    ALL = "All"
 
 class Gender(enum.Enum):
     """Enumeration of athlete genders."""

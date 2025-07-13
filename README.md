@@ -89,6 +89,8 @@ This Python application scrapes and analyzes FIS (International Ski Federation) 
    - create per-roster analysis (points, rank and result over time; particular   attention to delta in rank between selection and graduation)
    - allow for web scraping to generate roster
    - web interface
+   - update race scraping to identify future and cancelled races and
+      report as such (2016 import has suspiciously high number of "no results" returns, but hand sampling shows all to be canceled per FIS site)
    - consider supporting Team Parallel, Team combined (see below)
 
 ## Functionality notes

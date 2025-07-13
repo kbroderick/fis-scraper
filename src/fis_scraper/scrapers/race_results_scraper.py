@@ -214,7 +214,8 @@ class RaceResultsScraper:
             logger.error(f"Error scraping race {race_id}: {e}")
         return race_info, results
 
-    def get_current_season(self) -> int:
+    @staticmethod
+    def get_current_season() -> int:
         """Get the current FIS season; 1 July starts new season."""
         date = datetime.now()
         if date.month >= 7:
