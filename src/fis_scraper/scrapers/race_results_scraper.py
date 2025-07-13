@@ -81,7 +81,7 @@ class RaceResultsScraper:
         race_links = soup.find_all('a', {'class': 'pl-xs-0_6 pr-xs-0 g-sm-2 g-xs-3 justify-sm-center hidden-md-up bold'})
         return [link.get('href') for link in race_links]
         
-    def process_events(self, events: List[str], discover_only: bool = False) -> (int, int, int):
+    def process_events(self, events: List[str], discover_only: bool = False) -> Tuple[int, int, int]:
         """Process a list of events.
         
         Args:
@@ -122,6 +122,13 @@ class RaceResultsScraper:
                         else:
                             logger.error(f"Error saving results for race {race_id}: {saved_count}")
                             errors += 1
+                    elif race_info.get('discipline') is None:
+                        # NOTE: special case from scrape_race_results() where discipline is not found
+                        #       by _parse_fis_race_header() / _parse_discipline() and we short-
+                        #       circuit out of the loop. Other parsing failures could end up in
+                        #       the else clause below.
+                        logger.error(f"Discipline could not be parsed for {race_id} / {self._race_link_from_id(race_id)}")
+                        errors += 1
                     else:
                         logger.warning(f"No results found for race {race_id}")
                         no_additional_results += 1

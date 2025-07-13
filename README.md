@@ -105,7 +105,7 @@ This Python application scrapes and analyzes FIS (International Ski Federation) 
       
    In the dev environment, each list takes approximately 30-40 seconds; ingesting all 333 lists takes a while.
 
-   Scraping an entire season of race results, likewise, will take significant time.
+   Scraping an entire season of race results, likewise, will take significant time. You will be notified of races without results (e.g. those that were cancelled) and any unsupported discipline types (e.g. Parallel, Team Combined, and City Events).
 
  ### Cached points lists:
 
