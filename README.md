@@ -84,6 +84,8 @@ This Python application scrapes and analyzes FIS (International Ski Federation) 
    Note that some race events have races from multiple categories—e.g. combining SAC and Chilean NC events in 55641. Those races will show up in both SAC and NC categories during discovery, but each will be ingested only once and recorded with the appropriate category in the local DB.
 
 ## TODO
+   - fix points-list ingestion of AC data
+   - add option to re-ingest points list and specified races
    - allow for CSV input of roster for eval
    - create per-athlete analysis (points, rank, and results over time)
    - create per-roster analysis (points, rank and result over time; particular   attention to delta in rank between selection and graduation)
@@ -91,7 +93,7 @@ This Python application scrapes and analyzes FIS (International Ski Federation) 
    - web interface
    - update race scraping to identify future and cancelled races and
       report as such (2016 import has suspiciously high number of "no results" returns, but hand sampling shows all to be canceled per FIS site)
-   - consider supporting Team Parallel, Team combined (see below)
+   - consider supporting Team Parallel, Team combined, Super Combined (see below)
 
 ## Functionality notes
  ### File paths, DB, and such
@@ -184,3 +186,4 @@ For example, in season 2025, only two events (JWC Tarvisio /raceid 123701 and Sa
 
 ## Also not supported
 City Events
+Super Combined

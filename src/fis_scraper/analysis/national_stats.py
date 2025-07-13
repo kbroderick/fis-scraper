@@ -39,7 +39,7 @@ class NationalStatsAnalyzer:
         results["licenses"] = self.licenses_per_year(season, nation, gender)
 
         for discipline in Discipline:
-            results[discipline] = self.report_by_discipline(discipline, nation, gender, season)
+            results[discipline.name] = self.report_by_discipline(discipline, nation, gender, season)
         return results
 
     def report_by_discipline(self, discipline: Discipline,
@@ -49,24 +49,24 @@ class NationalStatsAnalyzer:
             season = RaceResultsScraper.get_current_season()
 
         results = {}
+        max_rank = None
+
+        if discipline != Discipline.ALL:
+            max_rank = self._max_rank_for_discipline(discipline, gender, self._get_final_points_list_for_season(season))
+            results[max_rank] = self.session.execute(
+                select(func.count("*")).select_from(
+                    self._athletes_under_ranking_query(max_rank, season, nation, gender, discipline).subquery()
+                )
+            ).scalar()
 
         for ranking in self.RANKING_DEFAULTS:
+            if max_rank and ranking > max_rank:
+                break  # no need to continue if we're past total ranked athletes in this discipline
             athletes = self._athletes_under_ranking_query(ranking, season, nation, gender, discipline)
             results[ranking] = self.session.execute(
                 select(func.count("*")).select_from(athletes.subquery())
             ).scalar()
-        
-        if discipline == Discipline.ALL:
-            return results
-        
-        # maximium rank for all FIS athletes with points and the number of athletes ranked for this nation
-        max_rank = self._max_rank_for_discipline(discipline, gender, self._get_final_points_list_for_season(season))
-        if max_rank:
-            results[max_rank] = self.session.execute(
-                    select(func.count("*")).select_from(
-                        self._athletes_under_ranking_query(max_rank, season, nation, gender, discipline).subquery()
-                    )
-                ).scalar()
+
         return results
 
     def get_athletes_under_ranking(self,
