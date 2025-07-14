@@ -84,8 +84,8 @@ This Python application scrapes and analyzes FIS (International Ski Federation) 
    Note that some race events have races from multiple categories—e.g. combining SAC and Chilean NC events in 55641. Those races will show up in both SAC and NC categories during discovery, but each will be ingested only once and recorded with the appropriate category in the local DB.
 
 ## TODO
-   - fix points-list ingestion of AC data
    - add option to re-ingest points list and specified races
+   - write tests for national-level analysis module
    - allow for CSV input of roster for eval
    - create per-athlete analysis (points, rank, and results over time)
    - create per-roster analysis (points, rank and result over time; particular   attention to delta in rank between selection and graduation)
