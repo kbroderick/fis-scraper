@@ -4,6 +4,7 @@ from pprint import pprint
 import requests
 import re
 import logging
+from collections import namedtuple
 from datetime import datetime, date
 from typing import List, Dict, Optional, Tuple, Union
 from sqlalchemy.orm import Session
@@ -237,12 +238,12 @@ class PointsListScraper:
             name=points_list_data['name']
         )
 
-    def _athlete_from_row(self, row: pd.Series) -> Athlete:
+    def _athlete_from_row(self, row: namedtuple) -> Athlete:
         """
         Create an Athlete object from a row of points list data.
         
         Args:
-            row: Pandas Series containing points list data
+            row: namedtuple containing points list data
         
         Returns:
             Athlete: Athlete object
@@ -261,13 +262,13 @@ class PointsListScraper:
         )
         return athlete
 
-    def _athlete_points_from_row(self, row: pd.Series, athlete: Athlete,
+    def _athlete_points_from_row(self, row: namedtuple, athlete: Athlete,
                                  points_list: PointsList) -> AthletePoints:
         """
         Create an AthletePoints object from a row of points list data.
 
         Args:
-            row: Pandas Series containing points list data
+            row: namedtuple containing points list data
             athlete: Athlete object
             points_list: PointsList object
 
@@ -275,7 +276,7 @@ class PointsListScraper:
             AthletePoints: AthletePoints object
         """
         # NB: ACpoints and ACpos only present in season 2007 and later
-        if 'ACpoints' in row:
+        if 'ACpoints' in row._fields:
             ac_points = self._float_or_none(row.ACpoints)
             ac_rank = self._int_or_none(row.ACpos)
             ac_status = self._str_or_none(row.ACSta)

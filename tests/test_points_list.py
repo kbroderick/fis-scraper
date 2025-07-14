@@ -330,6 +330,22 @@ class TestPointsListScraperDatabase:
         assert athlete_points2.sl_rank == 331
         assert athlete_points2.ski_club == "Freidig Alpin"
         
+        # 413,"22nd FIS points list 2024/25",1,1,AL,O,216214,496434,"ABAD RODRIGUEZ",Celia,ESP,W,2000-10-24,FADI,ESP,"ABAD RODRIGUEZ Celia",2000,01-05-2025,179.71,721,*,46.90,662,*,47.05,690,*,59.43,262,*,113.87,36,*
+        # Verifying AC points and rank are set correctly
+        athlete3 = scraper.session.scalars(select(Athlete).where(Athlete.fis_db_id == 216214)).first()
+        athlete_points3 = scraper.session.scalars(select(AthletePoints).where(AthletePoints.athlete_id == athlete3.id)).first()
+        assert athlete_points3.sl_points == 46.90
+        assert athlete_points3.gs_points == 47.05
+        assert athlete_points3.gs_rank == 690
+        assert athlete_points3.sl_rank == 662
+        assert athlete_points3.ac_points == 113.87
+        assert athlete_points3.ac_rank == 36
+        assert athlete_points3.gs_status == '*'
+        assert athlete_points3.sl_status == '*'
+        assert athlete_points3.sg_status == '*'
+        assert athlete_points3.dh_status == '*'
+        assert athlete_points3.ac_status == '*'
+
         # Clean up
         scraper.session.query(AthletePoints).delete()
         scraper.session.query(Athlete).delete()
@@ -367,6 +383,11 @@ class TestPointsListScraperRowParsing:
     @pytest.fixture(scope='class')
     def bouchaal_row(self):
         df = pd.read_csv(os.path.join('tests', 'data', 'points_lists', 'bouchaal.csv'))
+        return next(df.itertuples())
+    
+    @pytest.fixture(scope='class')
+    def abadrodriguez_row(self):
+        df = pd.read_csv(os.path.join('tests', 'data', 'points_lists', 'abadrodriguez.csv'))
         return next(df.itertuples())
 
     def test_athlete_from_row_normal(self, scraper, abajo_row):
@@ -451,3 +472,19 @@ class TestPointsListScraperRowParsing:
         assert athlete_points.gs_status == '*'
         assert athlete_points.sl_status == None
         assert athlete_points.sg_status == '*'
+
+    def test_athlete_points_from_row_with_acpoints(self, scraper, abadrodriguez_row):
+        athlete = scraper._athlete_from_row(abadrodriguez_row)
+        points_list = scraper._points_list_from_dict(ListData.LIST_DATA_413)
+        athlete_points = scraper._athlete_points_from_row(abadrodriguez_row, athlete, points_list)
+        assert athlete_points.sl_points == 46.90
+        assert athlete_points.gs_points == 47.05
+        assert athlete_points.gs_rank == 690
+        assert athlete_points.sl_rank == 662
+        assert athlete_points.ac_points == 113.87
+        assert athlete_points.ac_rank == 36
+        assert athlete_points.gs_status == '*'
+        assert athlete_points.sl_status == '*'
+        assert athlete_points.sg_status == '*'
+        assert athlete_points.dh_status == '*'
+        assert athlete_points.ac_status == '*'
