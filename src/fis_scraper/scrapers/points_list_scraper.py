@@ -527,8 +527,12 @@ def main(start_date: Optional[date] = None,
         scraper = PointsListScraper()
         
         # Get available points lists
+        if not (verbose or very_verbose):
+            print("Fetching available points lists")
         logger.debug("Fetching available points lists")
         points_lists = scraper.get_points_lists()
+        if not (verbose or very_verbose):
+            print(f"Found {len(points_lists)} points lists")
         logger.info(f"Found {len(points_lists)} points lists")
 
         if (start_date is not None or end_date is not None):
@@ -545,10 +549,14 @@ def main(start_date: Optional[date] = None,
             logger.info(f"Processing points list: {points_list['name']}")
             success = scraper.download_and_process_points_list(points_list)
             if success:
+                if not (verbose or very_verbose):
+                    print(f"Successfully processed points list: {points_list['name']}")
                 logger.info(f"Successfully processed points list: {points_list['name']}")
             else:
                 logger.error(f"Failed to process points list: {points_list['name']}")
         
+        if not (verbose or very_verbose):
+            print("Points list scraping completed")
         logger.info("Points list scraping completed")
         
     except Exception as e:
