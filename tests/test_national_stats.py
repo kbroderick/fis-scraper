@@ -1,3 +1,4 @@
+import pandas as pd
 import pytest
 import logging
 from datetime import date
@@ -79,6 +80,62 @@ class TestNationalStatsAnalyzer:
             ac_status='*'
         )
 
+    @pytest.fixture(scope='class')
+    def sample_series_by_year_gender_output(self) -> Dict[int, Dict[str, int]]:
+        """Create a sample national_series_for_seasons output for testing with only Gender.M."""
+        return  {
+            2024: {
+                'total-Male': 848, 'SL-50-Male': 2, 'SL-100-Male': 5, 'SL-300-Male': 24, 'SL-ranked-Male': 763,
+                  'GS-50-Male': 5, 'GS-100-Male': 8, 'GS-300-Male': 26, 'GS-500-Male': 53,'GS-ranked-Male': 711,
+                  'SG-50-Male': 5, 'SG-100-Male': 10, 'SG-300-Male': 27, 'SG-500-Male': 48, 'SG-ranked-Male': 497,
+                  'DH-50-Male': 5, 'DH-100-Male': 9, 'DH-300-Male': 28, 'DH-500-Male': 52, 'DH-ranked-Male': 371,
+                  'AC-50-Male': 2, 'AC-100-Male': 8, 'AC-300-Male': 25, 'AC-500-Male': 37, 'AC-ranked-Male': 98,
+                  'ALL-50-Male': 14, 'ALL-100-Male': 24, 'ALL-300-Male': 68, 'ALL-500-Male': 103, 'ALL-ranked-Male': 779
+                },
+            2025: {'total-Male': 840, 'SL-50-Male': 2, 'SL-100-Male': 7, 'SL-300-Male': 21, 'SL-500-Male': 48, 'SL-ranked-Male': 743,
+                  'GS-50-Male': 3, 'GS-100-Male': 7, 'GS-300-Male': 26, 'GS-500-Male': 54, 'GS-ranked-Male': 716,
+                  'SG-50-Male': 5, 'SG-100-Male': 10, 'SG-300-Male': 28, 'SG-500-Male': 52, 'SG-ranked-Male': 470,
+                  'DH-50-Male': 6, 'DH-100-Male': 10, 'DH-300-Male': 28, 'DH-500-Male': 51, 'DH-ranked-Male': 385,
+                  'AC-50-Male': 2, 'AC-100-Male': 6, 'AC-300-Male': 23, 'AC-500-Male': 30, 'AC-ranked-Male': 79,
+                  'ALL-50-Male': 12, 'ALL-100-Male': 24, 'ALL-300-Male': 59, 'ALL-500-Male': 106, 'ALL-ranked-Male': 766
+                }
+            }
+
+    @pytest.fixture(scope='class')
+    def sample_series_by_year_output(self) -> Dict[int, Dict[str, int]]:
+        """Create a sample national_series_for_seasons output for testing."""
+        return  {
+            2024: {
+                'total-Male': 848, 'SL-50-Male': 2, 'SL-100-Male': 5, 'SL-300-Male': 24, 'SL-ranked-Male': 763,
+                  'GS-50-Male': 5, 'GS-100-Male': 8, 'GS-300-Male': 26, 'GS-500-Male': 53,'GS-ranked-Male': 711,
+                  'SG-50-Male': 5, 'SG-100-Male': 10, 'SG-300-Male': 27, 'SG-500-Male': 48, 'SG-ranked-Male': 497,
+                  'DH-50-Male': 5, 'DH-100-Male': 9, 'DH-300-Male': 28, 'DH-500-Male': 52, 'DH-ranked-Male': 371,
+                  'AC-50-Male': 2, 'AC-100-Male': 8, 'AC-300-Male': 25, 'AC-500-Male': 37, 'AC-ranked-Male': 98,
+                  'ALL-50-Male': 14, 'ALL-100-Male': 24, 'ALL-300-Male': 68, 'ALL-500-Male': 103, 'ALL-ranked-Male': 779,
+                'total-Female': 651,
+                  'SL-50-Female': 4, 'SL-100-Female': 9, 'SL-300-Female': 24, 'SL-500-Female': 56, 'SL-ranked-Female': 591,
+                  'GS-50-Female': 4, 'GS-100-Female': 12, 'GS-300-Female': 28, 'GS-500-Female': 56, 'GS-ranked-Female': 545,
+                  'SG-50-Female': 4, 'SG-100-Female': 9, 'SG-300-Female': 25, 'SG-500-Female': 36, 'SG-ranked-Female': 334,
+                  'DH-50-Female': 6, 'DH-100-Female': 9, 'DH-300-Female': 17, 'DH-500-Female': 32, 'DH-ranked-Female': 191,
+                  'AC-50-Female': 3, 'AC-100-Female': 6, 'AC-300-Female': 20, 'AC-500-Female': 31, 'AC-ranked-Female': 51,
+                  'ALL-50-Female': 10, 'ALL-100-Female': 22, 'ALL-300-Female': 47, 'ALL-500-Female': 95, 'ALL-ranked-Female': 602,
+                },
+            2025: {'total-Male': 840, 'SL-50-Male': 2, 'SL-100-Male': 7, 'SL-300-Male': 21, 'SL-500-Male': 48, 'SL-ranked-Male': 743,
+                  'GS-50-Male': 3, 'GS-100-Male': 7, 'GS-300-Male': 26, 'GS-500-Male': 54, 'GS-ranked-Male': 716,
+                  'SG-50-Male': 5, 'SG-100-Male': 10, 'SG-300-Male': 28, 'SG-500-Male': 52, 'SG-ranked-Male': 470,
+                  'DH-50-Male': 6, 'DH-100-Male': 10, 'DH-300-Male': 28, 'DH-500-Male': 51, 'DH-ranked-Male': 385,
+                  'AC-50-Male': 2, 'AC-100-Male': 6, 'AC-300-Male': 23, 'AC-500-Male': 30, 'AC-ranked-Male': 79,
+                  'ALL-50-Male': 12, 'ALL-100-Male': 24, 'ALL-300-Male': 59, 'ALL-500-Male': 106, 'ALL-ranked-Male': 766,
+                'total-Female': 653,
+                  'SL-50-Female': 3, 'SL-100-Female': 8, 'SL-300-Female': 27, 'SL-500-Female': 57, 'SL-ranked-Female': 596,
+                  'GS-50-Female': 6, 'GS-100-Female': 9, 'GS-300-Female': 24, 'GS-500-Female': 55, 'GS-ranked-Female': 561,
+                  'SG-50-Female': 4, 'SG-100-Female': 11, 'SG-300-Female': 24, 'SG-500-Female': 37, 'SG-ranked-Female': 332,
+                  'DH-50-Female': 6, 'DH-100-Female': 10, 'DH-300-Female': 19, 'DH-500-Female': 36, 'DH-ranked-Female': 218,
+                  'AC-50-Female': 4, 'AC-100-Female': 5, 'AC-300-Female': 18, 'AC-500-Female': 34, 'AC-ranked-Female': 51,
+                  'ALL-50-Female': 13, 'ALL-100-Female': 21, 'ALL-300-Female': 49, 'ALL-500-Female': 97, 'ALL-ranked-Female': 607,
+                }
+            }
+
     def test_init(self, analyzer: NationalStatsAnalyzer) -> None:
         """Test NationalStatsAnalyzer initialization."""
         assert analyzer.session is not None
@@ -86,7 +143,7 @@ class TestNationalStatsAnalyzer:
 
     def test_national_report(self, analyzer: NationalStatsAnalyzer, mocker) -> None:
         """Test national_report method."""
-        mock_report_by_gender = mocker.patch.object(analyzer, 'report_by_gender')
+        mock_report_by_gender = mocker.patch.object(analyzer, 'national_report_by_gender')
         mock_report_by_gender.return_value = {'licenses': 100, 'SL': {50: 5, 100: 10}}
         
         result = analyzer.national_report('USA', 2025)
@@ -99,23 +156,23 @@ class TestNationalStatsAnalyzer:
         assert calls[0][0][0] == Gender.M  # First call with Gender.M
         assert calls[1][0][0] == Gender.F  # Second call with Gender.F
 
-    def test_report_by_gender(self, analyzer: NationalStatsAnalyzer, mocker) -> None:
-        """Test report_by_gender method."""
+    def test_national_report_by_gender(self, analyzer: NationalStatsAnalyzer, mocker) -> None:
+        """Test national_report_by_gender method."""
         mock_licenses_per_year = mocker.patch.object(analyzer, 'licenses_per_year')
-        mock_report_by_discipline = mocker.patch.object(analyzer, 'report_by_discipline')
+        mock_report_by_discipline = mocker.patch.object(analyzer, 'national_report_by_discipline')
         
         mock_licenses_per_year.return_value = 100
         mock_report_by_discipline.return_value = {50: 5, 100: 10}
         
-        result = analyzer.report_by_gender(Gender.M, 'USA', 2025)
+        result = analyzer.national_report_by_gender(Gender.M, 'USA', 2025)
         
         assert 'licenses' in result
         assert result['licenses'] == 100
         assert mock_licenses_per_year.call_count == 1
         assert mock_report_by_discipline.call_count == len(Discipline)
 
-    def test_report_by_discipline(self, analyzer: NationalStatsAnalyzer, mocker) -> None:
-        """Test report_by_discipline method."""
+    def test_national_report_by_discipline(self, analyzer: NationalStatsAnalyzer, mocker) -> None:
+        """Test national_report_by_discipline method."""
         # Test the method structure and logic without complex SQLAlchemy mocking
         mock_max_rank = mocker.patch.object(analyzer, '_max_rank_for_discipline')
         mock_get_final_points_list = mocker.patch.object(analyzer, '_get_final_points_list_for_season')
@@ -136,7 +193,7 @@ class TestNationalStatsAnalyzer:
         mocker.patch.object(analyzer, '_athletes_under_ranking_query', return_value=mock_query)
         
         # Test that the method calls the expected dependencies
-        result = analyzer.report_by_discipline(Discipline.SL, 'USA', Gender.M, 2025)
+        result = analyzer.national_report_by_discipline(Discipline.SL, 'USA', Gender.M, 2025)
         
         # Verify the method structure works
         assert isinstance(result, dict)
@@ -163,7 +220,7 @@ class TestNationalStatsAnalyzer:
 
     def test_discipline_series_for_seasons(self, analyzer: NationalStatsAnalyzer, mocker) -> None:
         """Test discipline_series_for_seasons method."""
-        mock_report_by_discipline = mocker.patch.object(analyzer, 'report_by_discipline')
+        mock_report_by_discipline = mocker.patch.object(analyzer, 'national_report_by_discipline')
         mock_report_by_discipline.return_value = {50: 5, 100: 10}
         
         result = analyzer.discipline_series_for_seasons(Discipline.SL, 'USA', Gender.M, 2024, 2025)
@@ -172,15 +229,15 @@ class TestNationalStatsAnalyzer:
         assert 2025 in result
         assert mock_report_by_discipline.call_count == 2
 
-    def test_all_disciplines_series_for_seasons(self, analyzer: NationalStatsAnalyzer, mocker) -> None:
-        """Test all_disciplines_series_for_seasons method."""
+    def test_national_report_series_for_seasons(self, analyzer: NationalStatsAnalyzer, mocker) -> None:
+        """Test national_report_series_for_seasons method."""
         mock_licenses_series = mocker.patch.object(analyzer, 'licenses_series_for_seasons')
         mock_discipline_series = mocker.patch.object(analyzer, 'discipline_series_for_seasons')
         
         mock_licenses_series.return_value = {2024: 100, 2025: 105}
         mock_discipline_series.return_value = {2024: {50: 5}, 2025: {50: 6}}
         
-        result = analyzer.all_disciplines_series_for_seasons('USA', Gender.M, 2024, 2025)
+        result = analyzer.national_report_series_for_seasons('USA', Gender.M, 2024, 2025)
         
         assert f"USA licenses - {Gender.M.value}" in result
         assert mock_licenses_series.call_count == 1
@@ -188,17 +245,17 @@ class TestNationalStatsAnalyzer:
 
     def test_national_series_for_seasons(self, analyzer: NationalStatsAnalyzer, mocker) -> None:
         """Test national_series_for_seasons method."""
-        mock_all_disciplines_series = mocker.patch.object(analyzer, 'all_disciplines_series_for_seasons')
-        mock_all_disciplines_series.return_value = {'SL - M': {2024: {50: 5}}}
+        mock_national_report_series = mocker.patch.object(analyzer, 'national_report_series_for_seasons')
+        mock_national_report_series.return_value = { "usa licenses - male": {2024: 100, 2025: 105}, "SL-male": {2024: {50: 5}, 2025: {50: 6}}, "GS-male": {2024: {50: 5}, 2025: {50: 6}}, "SG-male": {2024: {50: 5}, 2025: {50: 6}}, "DH-male": {2024: {50: 5}, 2025: {50: 6}}, "AC-male": {2024: {50: 5}, 2025: {50: 6}}, "ALL-male": {2024: {50: 5}, 2025: {50: 6}}}
         
         result = analyzer.national_series_for_seasons('USA', 2024, 2025)
         
-        assert mock_all_disciplines_series.call_count == 2  # Called for both M and F
+        assert mock_national_report_series.call_count == 2  # Called for both M and F
 
-    def test_series_by_year(self, analyzer: NationalStatsAnalyzer, mocker) -> None:
+    def test_series_by_year(self, analyzer: NationalStatsAnalyzer, mocker, sample_series_by_year_output) -> None:
         """Test series_by_year method."""
         mock_season_series = mocker.patch.object(analyzer, 'season_series')
-        mock_season_series.return_value = {'total-men': 100, 'sl-50-men': 5}
+        mock_season_series.return_value = sample_series_by_year_output
         
         result = analyzer.series_by_year('USA', 2024, 2025)
         
@@ -214,6 +271,16 @@ class TestNationalStatsAnalyzer:
         result = analyzer.season_series('USA', 2025)
         
         assert mock_season_series_for_gender.call_count == 2  # Called for both M and F
+
+    def test_season_series_with_specific_gender(self, analyzer: NationalStatsAnalyzer, mocker) -> None:
+        """Test season_series method with specific gender."""
+        mock_season_series_for_gender = mocker.patch.object(analyzer, 'season_series_for_gender')
+        mock_season_series_for_gender.return_value = {'total-men': 100, 'sl-50-men': 5, 'sl-ranked-men': 10}
+        
+        result = analyzer.season_series('USA', 2025, Gender.M)
+        
+        assert mock_season_series_for_gender.call_count == 1
+        assert mock_season_series_for_gender.call_args[0][2] == Gender.M
 
     def test_season_series_for_gender(self, analyzer: NationalStatsAnalyzer, mocker) -> None:
         """Test season_series_for_gender method."""
@@ -378,6 +445,27 @@ class TestNationalStatsAnalyzer:
         
         assert result == 2025
 
+    def test_national_dataframe(self, analyzer: NationalStatsAnalyzer, mocker, sample_series_by_year_output) -> None:
+        """Test national_dataframe method."""
+        mock_series_by_year = mocker.patch.object(analyzer, 'series_by_year')
+        mock_series_by_year.return_value = sample_series_by_year_output
+        
+        result = analyzer.national_dataframe('USA', 2024, 2025)
+        
+        assert mock_series_by_year.call_count == 1
+        assert isinstance(result, pd.DataFrame)
+        assert result.shape == (62, 2)
+
+    def test_national_dataframe_by_gender(self, analyzer: NationalStatsAnalyzer, mocker, sample_series_by_year_gender_output) -> None:
+        """Test national_dataframe_by_gender method."""
+        mock_series_by_year = mocker.patch.object(analyzer, 'series_by_year')
+        mock_series_by_year.return_value = sample_series_by_year_gender_output
+        
+        result = analyzer.national_dataframe_by_gender('USA', Gender.M, 2024, 2025)
+        assert mock_series_by_year.call_count == 1
+        assert mock_series_by_year.call_args[0][3] == Gender.M
+        assert isinstance(result, pd.DataFrame)
+        assert result.shape == (31, 2)
 
 class TestNationalStatsAnalyzerDatabase:
     """Test suite for NationalStatsAnalyzer database functionality."""
@@ -432,7 +520,7 @@ class TestNationalStatsAnalyzerDatabase:
 
     def test_report_by_discipline_with_real_data(self, analyzer: NationalStatsAnalyzer) -> None:
         """Test report_by_discipline with real database data."""
-        result = analyzer.report_by_discipline(Discipline.SL, 'ESP', Gender.M, 2025)
+        result = analyzer.national_report_by_discipline(Discipline.SL, 'ESP', Gender.M, 2025)
         assert isinstance(result, dict)
         assert all(isinstance(k, int) for k in result.keys())
         assert all(isinstance(v, int) for v in result.values())
@@ -522,5 +610,5 @@ class TestNationalStatsAnalyzerEdgeCases:
         mocker.patch.object(analyzer.session, 'execute', return_value=mock_result)
         
         # This should not raise an exception
-        result = analyzer.report_by_discipline(Discipline.ALL, 'USA', Gender.M, 2025)
+        result = analyzer.national_report_by_discipline(Discipline.ALL, 'USA', Gender.M, 2025)
         assert isinstance(result, dict) 
