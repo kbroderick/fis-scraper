@@ -145,7 +145,7 @@ Of note as not self-explanatory, `sl_status`, `gs_status`, `sg_status`, `dh_stat
 
 Run the test suite:
 ```bash
-dropdb fis_test_data ; createdb fis_data_test ; PYTEST_CURRENT_TEST=true alembic upgrade head && pytest -v tests/
+dropdb fis_data_test ; createdb fis_data_test ; PYTEST_CURRENT_TEST=true alembic upgrade head && pytest -v tests/
 ```
 
 ## License
@@ -177,7 +177,6 @@ City Events
 Super Combined
 
 ## TODO
-   - make sure output for main.py points is reasonable without --verbose
    - add option to re-ingest points list and specified races
    - write tests for national-level analysis module
    - allow for CSV input of roster for eval
