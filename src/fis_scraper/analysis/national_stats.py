@@ -13,7 +13,7 @@ logging.basicConfig(
     format='%(asctime)s - %(levelname)s - %(message)s'
 )
 logger = logging.getLogger(__name__)
-logger.setLevel(logging.DEBUG)
+logger.setLevel(logging.INFO)
 
 class NationalStatsAnalyzer:
     """Analyzer for national stats data including race results and FIS points.
@@ -212,7 +212,135 @@ class NationalStatsAnalyzer:
             results.update(self.all_disciplines_series_for_seasons(nation, gender, start_season, end_season))
 
         return results
+    
+    def series_by_year(self, nation: str, start_season: int, end_season: int) -> Dict[int, int]:
+        """
+        Get the number of athletes under a given ranking for a set of
+        seasons, returned as DataFrame-ready dictionary with each series
+        as a column.
+        
+        Args:
+            nation: three-letter national code (e.g. "USA", "SUI", "AUT")
+            start_season: First season to include
+            end_season: Last season to include
 
+        Returns:
+            Dictionary with seasons as keys and the number of athletes
+            under a given ranking for a given nation, gender, and
+            discipline for a given range of seasons as values.
+
+            e.g.
+
+            { 2024:
+                {'total-men': 805, 'sl-50-men': 3, 'sl-100-men': 7, 'sl-300-men': 20, 'sl-500-men': 40, 'sl-1000-men': 131, 'sl-ranked-men': 761,
+                               'gs-50-men': 5, 'gs-100-men': 10, 'gs-300-men': 30, 'gs-500-men': 40, 'gs-1000-men': 132, 'gs-ranked-men': 711,
+                               'sg-50': 3 ...
+                 'total-women': 805, 'sl-50-women': 3, 'sl-100-women': 7, 'sl-300-women': 20, 'sl-500-women': 40, 'sl-1000-women': 131, 'sl-ranked-women': 761,
+                               'gs-50': 3 ...
+                 'total-all': 1610, 'sl-50-all': 6, 'sl-100-all': 14, 'sl-300-all': 40, 'sl-500-all': 80, 'sl-1000-all': 262, 'sl-ranked-all': 1522,
+                               'gs-50': 8 ...
+                }
+                2025: { ... }
+                ...
+            }
+
+        """
+        results = {}
+        for season in range(start_season, end_season + 1):
+            results[season] = self.season_series(nation, season)
+        return results
+    
+    def season_series(self, nation: str, season: int) -> Dict[str, int]:
+        """Get the number of athletes under a given ranking for a given nation for a given season.
+
+        Args:
+            nation: three-letter national code (e.g. "USA", "SUI", "AUT")
+            season: Season to filter by
+
+        Returns:
+            Dictionary with gender-discipline strings as keys and the
+            number of athletes under a given ranking for a given nation
+            for a given season as values.
+
+            e.g.
+            {'total-men': 805, 'sl-50-men': 3 ... 'gs-50-men': 5 ... }
+            
+        """
+        results = {}
+        # NB: we only need to do this for M and F, as the total is the sum of the two
+        for gender in [Gender.M, Gender.F]:
+            results.update(self.season_series_for_gender(nation, season, gender))
+        return results
+    
+    def season_series_for_gender(self, nation: str, season: int, gender: Gender) -> Dict[str, int]:
+        """
+        Get the number of athletes under a given ranking for a given
+        nation for a given season and gender.
+
+        Args:
+            nation: three-letter national code (e.g. "USA", "SUI", "AUT")
+            season: Season to filter by
+            gender: Gender to filter by
+
+        Returns:
+            Dictionary with gender-discipline strings as keys and the
+            number of athletes under a given ranking for a given nation
+            for a given season and gender as values.
+
+            e.g.
+            {'total-men': 805, 'sl-50-men': 3 ... 'gs-50-men': 5 ... }
+        """
+        logger.info(f"Getting season series for {nation} {season} {gender}")
+        results = {}
+        for discipline in Discipline:
+            results.update(self.season_series_for_discipline(discipline, nation, season, gender))
+        return results
+
+    def season_series_for_discipline(self, discipline: Discipline, nation: str, season: int, gender: Gender) -> Dict[str, int]:
+        """
+        Get the number of athletes under a given ranking for a given nation for a given season and discipline.
+
+        Args:
+            discipline: Discipline to filter by
+            nation: three-letter national code (e.g. "USA", "SUI", "AUT")
+            season: Season to filter by
+            gender: Gender to filter by
+
+        Returns:
+            Dictionary with gender-discipline strings as keys and the
+            number of athletes under a given ranking for a given nation
+            for a given season and discipline as values.
+
+            e.g.
+            {'total-men': 805, 'sl-50-men': 3 ... 'sl-ranked-men': 761 }
+        """
+        logger.debug(f"Getting season series for {discipline} {nation} {season} {gender}")
+        results = {}
+        results[f"total-{gender.value}"] = self.licenses_per_year(season, nation, gender)
+        if discipline == Discipline.ALL:
+            max_rank = self._total_licenses_for_season(season, gender)
+        else:
+            max_rank = self._max_rank_for_discipline(discipline, gender, self._get_final_points_list_for_season(season))
+            if max_rank is None:
+                return results
+                # max_rank is None if no athletes are ranked in this discipline for this season,
+                # which may happen if the discipline was not contested in that season
+                # (e.g. AC prior to 2017)
+        for ranking in self.RANKING_DEFAULTS:
+            if ranking < max_rank:
+                results[f"{discipline.name}-{ranking}-{gender.value}"] = self.session.execute(
+                    select(func.count("*")).select_from(
+                        self._athletes_under_ranking_query(ranking, season, nation, gender, discipline).subquery()
+                    )
+                ).scalar()
+        results[f"{discipline.name}-ranked-{gender.value}"] = self.session.execute(
+            select(func.count("*")).select_from(
+                self._athletes_under_ranking_query(max_rank, season, nation, gender, discipline).subquery()
+            )
+        ).scalar()
+        return results
+    
+    
     def licenses_per_year(self, season: int, nation: str = None, gender: Gender = Gender.A) -> Dict[int, int]:
         """Get the number of licenses per year for a given nation and gender."""
         points_list = self._get_final_points_list_for_season(season)
@@ -229,6 +357,14 @@ class NationalStatsAnalyzer:
             query = query.where(Athlete.gender == gender)
 
         return self.session.execute(query).scalar()
+    
+    def _total_licenses_for_season(self, season: int, gender: Gender) -> int:
+        """Get the total number of licenses for a given season and gender."""
+        return self.session.execute(
+            select(func.count("*")).select_from(Athlete).join(AthletePoints)
+                .where(AthletePoints.points_list == self._get_final_points_list_for_season(season),
+                       Athlete.gender == gender)
+        ).scalar()
     
     def licenses_series_for_seasons(self, start_season: int, end_season: int, nation: str = None,
                                     gender: Gender = Gender.A) -> Dict[int, int]:
@@ -293,7 +429,6 @@ class NationalStatsAnalyzer:
                 AthletePoints.ac_rank <= ranking
             ))
         else:
-            logger.debug(f"Getting query for {discipline} with ranking {ranking}")
             query = query.where(self._get_discipline_rank_column(discipline) <= ranking)
         return query
 

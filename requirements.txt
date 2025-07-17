@@ -8,3 +8,4 @@ openpyxl==3.1.2  # For Excel file handling
 alembic==1.15.2  # For database migrations
 psycopg2-binary==2.9.9  # PostgreSQL adapter
 pytest-mock==3.14.0
+tabulate==0.9.0
